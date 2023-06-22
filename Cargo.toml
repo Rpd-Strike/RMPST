@@ -1,5 +1,5 @@
 [package]
-name = "Pi-Calculus"
+name = "pi_calculus"
 version = "0.1.0"
 edition = "2021"
 
