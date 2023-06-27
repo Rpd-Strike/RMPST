@@ -1,8 +1,9 @@
 // express the pi calculus terms
-enum Process
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Process
 {
-    // Empty process
-    Zero,
+    // End process
+    End,
     // Parallel composition
     Par(Box<Process>, Box<Process>),
     // Restriction
@@ -13,9 +14,10 @@ enum Process
     Prefix(AtomicAction, Box<Process>),
 }
 
-enum AtomicAction
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AtomicAction
 {
     Send(String, String),
     Receive(String, String),
-    Tau,
+    // Tau,
 }
