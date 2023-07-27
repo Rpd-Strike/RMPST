@@ -2,9 +2,9 @@ use std::collections::{HashSet, HashMap};
 
 use crossbeam::channel::unbounded;
 
-use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process};
+use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey};
 
-use super::{super::syntax::Process, components::{picker::ActionPicker, actions::ActionInterpreter}, entities::participant::{Participant, PartyContext, PartyChPool}, types::PartyComm};
+use super::{super::syntax::Process, components::{picker::ActionPicker, actions::ActionInterpreter}, entities::{participant::{Participant, PartyContext, PartyChPool, TagContext, RollbackContext, TODO_S}, history::{HistoryContext, HistoryParticipant}}, types::{PartyComm, MemoryPiece}};
 
 #[derive(Default)]
 struct Generator
@@ -61,43 +61,61 @@ impl Generator
         return false;
     }
 
-    fn generate_participants(self: Self) -> Vec<Participant>
+    fn generate_participants(self: Self) -> (Vec<Participant>, HistoryParticipant)
     {
         // TODO: Create channels and create copy for each of the participants
-
-        let mut pool_recv = HashMap::new();
-        let mut pool_send = HashMap::new();
-
         let channels = self.participants.iter()
             .map(|(id, (_, _, proc))| {
                 proc.iter().map(|tag_proc| {
-                    all_chn_names_proc(prime_proc_to_process(&tag_proc.proc))
+                    all_chn_names_proc(&prime_proc_to_process(&tag_proc.proc))
                 })
                 .flatten().collect::<HashSet<_>>()
             })
             .flatten();
-        
-        for ch_name in channels {
-            let (send, recv) = unbounded::<PartyComm>();
-            pool_recv.insert(ch_name.to_owned(), recv);
-            pool_send.insert(ch_name.to_owned(), send);
-        }
 
-        let partChPool = PartyChPool {
-            receivers: HashMap::new(),
-            senders: HashMap::new(),
+        let partChPool = PartyChPool::new(channels);
+        let mut memory_context = HistoryContext::default();
+
+        let mut create_party_context = |id: &String| {
+            let (h_tag_send, h_tag_recv) = unbounded::<MemoryPiece>();
+            let (h_not_send, h_not_recv) = unbounded::<TagKey>();
+
+            let (r_tag_send, r_tag_recv) = unbounded::<TODO_S>();
+            let (r_frz_send, r_frz_recv) = unbounded::<TODO_S>();
+
+            memory_context.hist_tag_recv.insert(id.clone(), h_tag_recv);
+            memory_context.hist_not_send.insert(id.clone(), h_not_send);
+            memory_context.roll_tag_recv.insert(id.clone(), r_tag_recv);
+            memory_context.roll_frz_send.insert(id.clone(), r_frz_send);
+
+            PartyContext {
+                channel_pool: partChPool.clone(),
+                history_ctx: TagContext {
+                    hist_tag_channel: h_tag_send,
+                    hist_conf_channel: h_not_recv,
+                },
+                rollback_ctx: RollbackContext {
+                    roll_tag_channel: r_tag_send,
+                    freeze_not_channel: r_frz_recv,
+                }   
+            }
         };
 
-        self.participants
+        let parties = self.participants
             .into_iter()
             .map(|(id, (picker, interpreter, proc)) | {
+                let c_ctx = create_party_context(&id);
                 Participant::new(
                     id,
                     proc,
                     picker,
                     interpreter,
-                    PartyContext::new(),
+                    c_ctx,
                 )
-            }).collect()
+            }).collect();
+        
+        let hist = HistoryParticipant::new(memory_context);
+
+        return (parties, hist)
     }
 }

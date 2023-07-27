@@ -6,15 +6,20 @@ use crate::rollpi::syntax::{Process, ProcTag, ChName, ProcVar, TagVar, TagKey};
 
 pub struct PartyComm
 {
-    sender_id: String,
-    process: Process,
-    tag: ProcTag,
+    pub sender_id: String,
+    pub process: Process,
+    pub tag: ProcTag,
 }
 
 pub struct MemoryPiece
 {
-    sender: (ProcTag, (ChName, Process)),
-    receiver: (ProcTag, (ChName, ProcVar, TagVar, Process)),
-    new_mem_tag: TagKey,
+    // ids of sender, receiver
+    pub ids: (String, String),
+    // Sender process
+    pub sender: (ProcTag, (ChName, Process)),
+    // Receiver process
+    pub receiver: (ProcTag, (ChName, ProcVar, TagVar, Process)),
+    // Tag of the new process
+    pub new_mem_tag: TagKey,
 }
 

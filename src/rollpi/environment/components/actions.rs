@@ -7,7 +7,7 @@ pub enum PartyAction<'a>
     End,
 }
 
-pub trait ActionInterpreter
+pub trait ActionInterpreter : Send
 {
     fn interpret_action(&self, action: &PartyAction, context: &PartyContext)
         -> Option<Process>;
@@ -47,10 +47,11 @@ impl ActionInterpreter for SimpleInterpreter
                         println!("Sending process: {:?}", proc);
                         let channel = context.chan_msg_ctx(ch_id).send_channel;
                         
+                        // TODO: Send id somwhow
                         channel.send(PartyComm {
                             sender_id: "".to_owned(),
-                            process: *proc,
-                            tag: *tag,
+                            process: proc.clone(),
+                            tag: tag.clone(),
                         }).unwrap();
 
                         return None

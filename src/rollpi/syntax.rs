@@ -1,20 +1,20 @@
 use std::{fmt::Display, collections::HashSet};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChName(pub String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProcVar(pub String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TagVar(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TagKey(String);
 
 pub type PrimeState = Vec<TaggedPrimProc>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProcTag 
 {
     PTKey(TagKey),
@@ -32,7 +32,7 @@ pub enum PrimProcess
 }
 
 // Our convention is that a process does not have free variables either for channels or process variables
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Process
 {
     End,
@@ -51,17 +51,17 @@ pub struct TaggedPrimProc
     pub proc: PrimProcess,
 }
 
-pub fn prime_proc_to_process(prime: &PrimProcess) -> &Process
+pub fn prime_proc_to_process(prime: &PrimProcess) -> Process
 {
     match prime {
         PrimProcess::End => 
-            &Process::End,
+            Process::End,
         PrimProcess::RollK(tag) => 
-            &Process::RollK(*tag),
+            Process::RollK(tag.clone()),
         PrimProcess::Send(ch_name, proc) => 
-            &Process::Send(*ch_name, Box::new(*proc)),
+            Process::Send(ch_name.clone(), Box::new(proc.clone())),
         PrimProcess::Recv(ch_name, p_var, t_var, proc) => 
-            &Process::Recv(*ch_name, *p_var, *t_var, Box::new(*proc)),
+            Process::Recv(ch_name.clone(), p_var.clone(), t_var.clone(), Box::new(proc.clone())),
     }
 }
 
@@ -95,6 +95,6 @@ pub fn all_chn_names_proc(proc: &Process) -> HashSet<String>
 pub fn all_chn_names_state(proc: &PrimeState) -> HashSet<String>
 {
     proc.iter().map(|TaggedPrimProc{proc, ..}| {
-        all_chn_names_proc(prime_proc_to_process(proc))
+        all_chn_names_proc(&prime_proc_to_process(&proc))
     }).flatten().collect()
 }

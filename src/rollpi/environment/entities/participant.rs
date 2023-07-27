@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::rollpi::{environment::{components::{actions::ActionInterpreter, picker::ActionPicker}, types::{MemoryPiece, PartyComm}}, syntax::{Process, TagKey, PrimeState}};
 
 
-trait Runnable
+pub trait Runnable : Send
 {
     fn run(&mut self);
 }
@@ -23,37 +23,58 @@ pub struct Participant
 
 pub struct PartyContext
 {
-    channel_pool: PartyChPool,
-    history_ctx: HistoryContext,
-    rollback_ctx: RollbackContext,
+    pub channel_pool: PartyChPool,
+    pub history_ctx: TagContext,
+    pub rollback_ctx: RollbackContext,
 }
 
-struct ChMsgContext<'a>
+pub struct ChMsgContext<'a>
 {
     pub send_channel: &'a Sender<PartyComm>,
     pub recv_channel: &'a Receiver<PartyComm>,
 }
 
-struct HistoryContext
+pub struct TagContext
 {
-    hist_tag_channel: Sender<MemoryPiece>,
-    hist_conf_channel: Receiver<TagKey>,
+    pub hist_tag_channel: Sender<MemoryPiece>,
+    pub hist_conf_channel: Receiver<TagKey>,
 }
 
-struct RollbackContext
+pub struct RollbackContext
 {
-    roll_tag_channel: Sender<TODO_S>,
-    roll_not_channel: Receiver<TODO_S>,
+    pub roll_tag_channel: Sender<TODO_S>,
+    pub freeze_not_channel: Receiver<TODO_S>,
 }
 
-struct TODO_S;
+pub struct TODO_S;
 
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PartyChPool
 {
-    receivers: HashMap<String, Receiver<PartyComm>>,
     senders: HashMap<String, Sender<PartyComm>>,
+    receivers: HashMap<String, Receiver<PartyComm>>,
+}
+
+impl PartyChPool
+{
+    pub fn new(it: impl Iterator<Item = String>) 
+        -> Self
+    {
+        let mut receivers = HashMap::new();
+        let mut senders = HashMap::new();
+
+        for id in it {
+            let (tx, rx) = unbounded::<PartyComm>();
+            receivers.insert(id.clone(), rx);
+            senders.insert(id, tx);
+        }
+
+        Self {
+            senders,
+            receivers,
+        }
+    }
 }
 
 impl PartyChPool
@@ -71,9 +92,9 @@ impl PartyChPool
 
 impl PartyContext
 {
-    pub fn chan_msg_ctx(&self, ch: &str) -> &ChMsgContext
+    pub fn chan_msg_ctx(&self, ch: &str) -> ChMsgContext
     {
-        &ChMsgContext {
+        ChMsgContext {
             send_channel: self.channel_pool.get_send(ch),
             recv_channel: self.channel_pool.get_recv(ch),
         }
@@ -119,9 +140,9 @@ impl Runnable for Participant
 
         loop {
             let action = self.action_picker.pick_action(&self.state);
-            self.action_interpreter.interpret_action(action, &self.comm_context);
+            self.action_interpreter.interpret_action(&action, &self.comm_context);
         }
     }
 }
 
-use crossbeam::channel::{Sender, Receiver};
+use crossbeam::channel::{Sender, Receiver, unbounded};
