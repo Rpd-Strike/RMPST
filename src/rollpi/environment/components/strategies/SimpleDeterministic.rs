@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::{ActionInterpreter}}, entities::participant::{PartyCommCtx, PartyContext}, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}};
+use crate::{rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::{ActionInterpreter}}, entities::participant::{PartyCommCtx, PartyContext}, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}, reductions}};
 
 pub enum ActionContext<'a>
 {
@@ -37,17 +37,18 @@ impl ActionInterpreter for SimpleDetermStrat
                 let send_ch = &ctx.get_comm_ctx().history_ctx.hist_tag_channel;
                 send_ch.send(MemoryPiece {
                     ids: (in_data.sender_id, ctx.get_id().clone()),
-                    sender: (in_data.tag, (ch_name.clone(), in_data.process)),
+                    sender: (in_data.tag, (ch_name.clone(), in_data.process.clone())),
                     receiver: (recv_tag, (ch_name, p_var.clone(), t_var.clone(), next_proc.clone())),
-                    new_mem_tag: new_tag,
+                    new_mem_tag: new_tag.clone(),
                 }).unwrap();
 
                 let recv_ch = &ctx.get_comm_ctx().history_ctx.hist_conf_channel;
                 match recv_ch.recv() {
                     Err(err) => todo!(),
                     Ok(x) => {
-                        let new_proc = syntax::perform_alpha_conv_proc(next_proc, p_var, in_data.process, t_var, new_tag);
-                        ctx.get_tag_ctx().
+                        let new_proc = reductions::perform_alpha_conv_proc(next_proc, p_var.clone(), in_data.process, t_var.clone(), new_tag);
+                        
+                        todo!() // Make conversion to tagged process
                     }
                 }
 
