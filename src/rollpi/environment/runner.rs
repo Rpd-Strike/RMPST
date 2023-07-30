@@ -5,7 +5,7 @@ use super::entities::{participant::{Participant, Runnable}, history::HistoryPart
 pub struct RunningContext
 {
     pub parties: Vec<Participant>,
-    pub memory: HistoryParticipant,
+    pub hist: HistoryParticipant,
 }
 
 struct Runner
@@ -22,13 +22,17 @@ impl Runner
         }
     }
 
-    pub fn run(self: &'static mut Self)
+    pub fn run(self: Self)
     {
         // start the participants on different threads
-        thread::spawn(move || {
-            for p in &mut self.context.parties {
+        for p in self.context.parties {
+            thread::spawn(move || {
                 p.run();
-            }
+            });
+        };
+
+        thread::spawn(move || {
+            self.context.hist.run();
         });
     }
 }

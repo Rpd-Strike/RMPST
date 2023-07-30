@@ -4,12 +4,12 @@ use crossbeam::channel::unbounded;
 
 use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey};
 
-use super::{super::syntax::Process, components::{picker::ActionPicker, actions::ActionInterpreter}, entities::{participant::{Participant, PartyContext, PartyChPool, TagContext, RollbackContext, TODO_S}, history::{HistoryContext, HistoryParticipant}}, types::{PartyComm, MemoryPiece}};
+use super::{components::{actions::ActionInterpreter, picker::Strategy}, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext, TODO_S}, history::{HistoryContext, HistoryParticipant}}, types::{MemoryPiece}};
 
 #[derive(Default)]
 struct Generator
 {
-    participants: HashMap<String, (Box<dyn ActionPicker>, Box<dyn ActionInterpreter>, PrimeState)>,
+    participants: HashMap<String, (Box<dyn Strategy>, PrimeState)>,
 }
 
 impl Generator
@@ -18,13 +18,11 @@ impl Generator
         self: &mut Self,
         id: String,
         proc: PrimeState, 
-        picker: Option<Box<dyn ActionPicker>>,
-        interpreter: Option<Box<dyn ActionInterpreter>>,
+        strat: Option<Box<dyn Strategy>>,
     )
     {
         self.participants.insert(id, (
-            picker.unwrap_or_default(),
-            interpreter.unwrap_or_default(),
+            strat.unwrap_or_default(),
             proc,
         ));
     }
@@ -35,14 +33,14 @@ impl Generator
         self: &mut Self,
         proc: PrimeState,
         id: Option<String>,
-        strategy: Option<Box<dyn ActionPicker>>,
+        strategy: Option<Box<dyn Strategy>>,
         interpreter: Option<Box<dyn ActionInterpreter>>,
     ) -> bool
     {
         // try to add the id given from the argument if not in the hashset
         if let Some(id) = id {
             if !self.participants.contains_key(&id) {
-                self.create_participant(id, proc, strategy, interpreter);
+                self.create_participant(id, proc, strategy);
                 return true;    
             }
         }
@@ -57,7 +55,7 @@ impl Generator
             i += 1;
         };
 
-        self.create_participant(id, proc, strategy, interpreter);
+        self.create_participant(id, proc, strategy);
         return false;
     }
 
@@ -65,7 +63,7 @@ impl Generator
     {
         // TODO: Create channels and create copy for each of the participants
         let channels = self.participants.iter()
-            .map(|(id, (_, _, proc))| {
+            .map(|(_id, (_, proc))| {
                 proc.iter().map(|tag_proc| {
                     all_chn_names_proc(&prime_proc_to_process(&tag_proc.proc))
                 })
@@ -88,7 +86,7 @@ impl Generator
             memory_context.roll_tag_recv.insert(id.clone(), r_tag_recv);
             memory_context.roll_frz_send.insert(id.clone(), r_frz_send);
 
-            PartyContext {
+            PartyCommCtx {
                 channel_pool: partChPool.clone(),
                 history_ctx: TagContext {
                     hist_tag_channel: h_tag_send,
@@ -103,13 +101,12 @@ impl Generator
 
         let parties = self.participants
             .into_iter()
-            .map(|(id, (picker, interpreter, proc)) | {
+            .map(|(id, (strat, proc)) | {
                 let c_ctx = create_party_context(&id);
                 Participant::new(
                     id,
                     proc,
-                    picker,
-                    interpreter,
+                    strat,
                     c_ctx,
                 )
             }).collect();

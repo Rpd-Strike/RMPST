@@ -1,4 +1,4 @@
-use std::{fmt::Display, collections::HashSet};
+use std::{collections::HashSet};
 
 #[derive(Debug, Clone)]
 pub struct ChName(pub String);
@@ -10,7 +10,7 @@ pub struct ProcVar(pub String);
 pub struct TagVar(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TagKey(String);
+pub struct TagKey(pub String);
 
 pub type PrimeState = Vec<TaggedPrimProc>;
 
@@ -22,7 +22,7 @@ pub enum ProcTag
 }
 
 // A primitive process is the one that can appear as a top level process in the thread normal form
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PrimProcess
 {
     End,
@@ -44,7 +44,7 @@ pub enum Process
     RollK(TagKey),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TaggedPrimProc
 {
     pub tag: ProcTag,

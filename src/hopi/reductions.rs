@@ -11,7 +11,7 @@ type ProcessComm = (String, (Process, Process), Process);
 // Given a process p in normal form
 // Returns a list of possible commmunications that can happen in the form:
 //   (Channel_name, (Sender_proc, Receiver_proc), Leftover_proc)
-fn possible_communications(p: &Process) -> ProcessComm
+fn possible_communications(_p: &Process) -> ProcessComm
 {
     // TODO: not implemented
     return ("".to_string(), (Process::End, Process::End), Process::End);
@@ -19,7 +19,7 @@ fn possible_communications(p: &Process) -> ProcessComm
 
 // Given a process p in normal form, perform communication
 // Note this happens in a synchronously
-fn perform_communication(p: ProcessComm) -> Process
+fn perform_communication(_p: ProcessComm) -> Process
 {
     // TODO: Not implented
     return Process::End;
@@ -75,7 +75,7 @@ fn normalize_process(p: Process) -> Process
 
 // Takes a process in normal form, a channel name c_name
 // Returns an equivalent normalized process which has all restricted channel names different to c_name
-fn change_chn_names(p: Process, ch_name: &String) -> Process 
+fn change_chn_names(p: Process, _ch_name: &String) -> Process 
 {
     match p {
         Process::End => Process::End,
@@ -216,7 +216,7 @@ fn _chn_free_names_env(p: &Process, ctx: &mut HashSet<String>) -> HashSet<String
             r
         }
         // Same as Send case
-        Process::Receive(c_name, p_var, proc) => {
+        Process::Receive(c_name, _p_var, proc) => {
             let has_name = ctx.contains(c_name);
             let mut r = _chn_free_names_env(proc, ctx);
             if !has_name {
@@ -229,7 +229,7 @@ fn _chn_free_names_env(p: &Process, ctx: &mut HashSet<String>) -> HashSet<String
 
 // returns a list of free tag names 
 // ? This should always be empty, at least if coming from an encoding of local types
-fn tag_free_names(p: &Process) -> Vec<String>
+fn tag_free_names(_p: &Process) -> Vec<String>
 {
     todo!()
 }

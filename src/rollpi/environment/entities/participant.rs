@@ -1,27 +1,55 @@
 use std::collections::HashMap;
-use crate::rollpi::{environment::{components::{actions::ActionInterpreter, picker::ActionPicker}, types::{MemoryPiece, PartyComm}}, syntax::{Process, TagKey, PrimeState}};
+use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState}};
 
 
 pub trait Runnable : Send
 {
-    fn run(&mut self);
+    fn run(self: Self);
+}
+
+pub trait ContextGetter 
+{
+    fn get_context(self: &Self) -> &PartyCommCtx;
+
+    fn get_id(self: &Self) -> &String;
 }
 
 // Holds necessary information to run a participant on a thread
 pub struct Participant
 {
-    id: String,
-
     state: PrimeState,
     
-    action_picker: Box<dyn ActionPicker>,
-    
-    action_interpreter: Box<dyn ActionInterpreter>,
+    strategy: Box<dyn Strategy>,
 
-    comm_context: PartyContext,
+    party_context: PartyContext,
 }
 
 pub struct PartyContext
+{
+    id: String,
+    comm_ctx: PartyCommCtx,
+    tag_ctx: TagCreator,
+}
+
+impl PartyContext
+{
+    pub fn get_id(&self) -> &String
+    {
+        &self.id
+    }
+
+    pub fn get_comm_ctx(&self) -> &PartyCommCtx
+    {
+        &self.comm_ctx
+    }
+
+    pub fn get_tag_ctx(&mut self) -> &mut TagCreator
+    {
+        &mut self.tag_ctx
+    }
+}
+
+pub struct PartyCommCtx
 {
     pub channel_pool: PartyChPool,
     pub history_ctx: TagContext,
@@ -75,10 +103,7 @@ impl PartyChPool
             receivers,
         }
     }
-}
 
-impl PartyChPool
-{
     pub fn get_recv(&self, id: &str) -> &Receiver<PartyComm>
     {
         self.receivers.get(id).unwrap()
@@ -90,7 +115,7 @@ impl PartyChPool
     }
 }
 
-impl PartyContext
+impl PartyCommCtx
 {
     pub fn chan_msg_ctx(&self, ch: &str) -> ChMsgContext
     {
@@ -106,43 +131,57 @@ impl Participant
     pub fn new(
         id: String,
         state: PrimeState,
-        action_picker: Box<dyn ActionPicker>,
-        action_interpreter: Box<dyn ActionInterpreter>,
-        comm_context: PartyContext,
+        strategy: Box<dyn Strategy>,
+        comm_context: PartyCommCtx,
     ) -> Self
     {
         Self {
-            id,
             state,
-            action_picker,
-            action_interpreter,
-            comm_context,
+            strategy,
+            party_context: PartyContext {
+                id,
+                comm_ctx: comm_context,
+                tag_ctx: TagCreator::default(),
+            }
         }
     }
 
-    fn evolve_state(self: &mut Self)
+    fn evolve_state(&mut self)
+    {
+        let (ctx, state, strat) = self.borrow_data();
+        let action = strat.run_strategy(ctx, &state);
+        
+        if let Some(PrimProcTransf(_tag, proc)) = action {
+            state.extend(proc.into_iter())
+        }
+    }
+
+    fn rollback_logic(self: &Self)
     {
         todo!();
     }
 
-    fn rollback_logic(self: &mut Self)
+    fn borrow_data(&mut self) -> (&mut PartyContext, &mut PrimeState, &dyn Strategy)
     {
-        todo!();
+        (&mut self.party_context, &mut self.state, &*self.strategy)
     }
 
 }
 
 impl Runnable for Participant
 {
-    fn run(self: &mut Self)
+    fn run(mut self: Self)
     {
-        // TODO: Maybe use evolve_state / rollback_logic
-
         loop {
-            let action = self.action_picker.pick_action(&self.state);
-            self.action_interpreter.interpret_action(&action, &self.comm_context);
+            self.evolve_state()
+
+
+            // TODO: Implement rollback logic
+            // self.rollback_logic();
         }
     }
 }
 
 use crossbeam::channel::{Sender, Receiver, unbounded};
+
+use super::tag_creator::TagCreator;

@@ -53,7 +53,7 @@ impl HistoryParticipant
     // Tries to get a tag message from all the participants and process/respond
     fn run_tag_cycle(self: &mut Self)
     {
-        for (name, recv) in &self.ctx.hist_tag_recv {
+        for (_name, recv) in &self.ctx.hist_tag_recv {
             while let Ok(MemoryPiece{
                 ids: (id_send, id_recv), 
                 sender: (sender_tag, _), 
@@ -78,7 +78,7 @@ impl HistoryParticipant
     // Receives a rollback request from a participant and sends a freeze signal to all relevant participants
     fn run_rollback_cycle(self: &mut Self)
     {
-        for (name, recv) in &self.ctx.roll_tag_recv {
+        for (_name, recv) in &self.ctx.roll_tag_recv {
             while let Ok(TODO_S) = recv.try_recv() {
                 // TODO: ...
                 todo!();
@@ -89,7 +89,7 @@ impl HistoryParticipant
 
 impl Runnable for HistoryParticipant
 {
-    fn run(self: &mut Self)
+    fn run(self: Self)
     {
         
     }

@@ -1,86 +1,24 @@
-use crate::rollpi::{syntax::*, environment::{entities::participant::PartyContext, types::PartyComm}};
+use crate::rollpi::{syntax::*, environment::{entities::{participant::{PartyContext}}, types::{PartyComm, MemoryPiece}}};
 
-pub enum PartyAction<'a>
-{
-    RunPrimary(&'a TaggedPrimProc),
-    Crash,
-    End,
-}
+use super::{strategies::SimpleDeterministic::{SimpleDetermStrat, ActionContext}, picker::PrimProcTransf};
 
 pub trait ActionInterpreter : Send
 {
-    fn interpret_action(&self, action: &PartyAction, context: &PartyContext)
-        -> Option<Process>;
+    fn interpret_action(&self, context: &mut PartyContext, ctx: ActionContext)
+        -> PrimeState;
+
+    fn probe_recv_channel(&self, context: &PartyContext, ChName(id): &ChName)
+        -> Option<PartyComm>
+    {
+        let recv_channel = context.get_comm_ctx().chan_msg_ctx(&id).recv_channel;
+        recv_channel.try_recv().ok()
+    }
 }
 
 impl Default for Box<dyn ActionInterpreter>
 {
     fn default() -> Self
     {
-        Box::new(SimpleInterpreter)
-    }
-}
-
-struct SimpleInterpreter;
-
-impl ActionInterpreter for SimpleInterpreter
-{
-    fn interpret_action(&self, action: &PartyAction, context: &PartyContext)
-        -> Option<Process>
-    {
-        match action {
-            PartyAction::RunPrimary(TaggedPrimProc{tag, proc}) => {
-                println!("Running primary process: {:?}", proc);
-                match proc {
-                    PrimProcess::End => {
-                        println!("Ending...");
-
-                        return None
-                    },
-                    PrimProcess::RollK(_) => {
-                        // TODO: Follow next steps
-                        // 1. Send rollback notification to history
-
-                        todo!()
-                    },
-                    PrimProcess::Send(ChName(ch_id), proc) => {
-                        println!("Sending process: {:?}", proc);
-                        let channel = context.chan_msg_ctx(ch_id).send_channel;
-                        
-                        // TODO: Send id somwhow
-                        channel.send(PartyComm {
-                            sender_id: "".to_owned(),
-                            process: proc.clone(),
-                            tag: tag.clone(),
-                        }).unwrap();
-
-                        return None
-                    },
-                    PrimProcess::Recv(
-                        ChName(ch_id), 
-                        ProcVar(p_var), 
-                        TagVar(t_var), 
-                        proc) => 
-                    {
-                        // TODO: follow next steps
-                        // 1. receive message from channel
-                        // 2. send new moery piece to history
-                        // 3. Wait for confirmation from history
-                        // 4. Evaluate new process variable received
-
-                        // Should return Option<Continuation_proc>
-                        todo!()
-                    },
-                }
-            },
-            PartyAction::Crash => {
-                println!("Crashing...");
-                todo!()
-            },
-            PartyAction::End => {
-                println!("Ending...");
-                todo!()
-            },
-        }
+        Box::new(SimpleDetermStrat::default())
     }
 }

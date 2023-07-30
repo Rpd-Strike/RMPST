@@ -1,40 +1,29 @@
-use crate::rollpi::syntax::PrimeState;
+use std::task::Context;
 
-use super::actions::PartyAction;
+use crate::rollpi::{syntax::{PrimeState, TaggedPrimProc, Process, ProcVar, TagVar}, environment::entities::participant::{PartyCommCtx, PartyContext}};
+
+use super::{actions::ActionInterpreter, strategies::SimpleDeterministic::SimpleDetermStrat};
+
+pub struct PrimProcTransf<'a>(pub &'a TaggedPrimProc, pub PrimeState);
+
+pub enum ActionData
+{
+    None,
+    // Received process / the p_var of the process received / tag of the trigger / continuation process
+    RecvCont(Process, ProcVar, TagVar, Process),
+}
 
 // Trait that specifies how to pick next action for a participant
 //   to take from one of its primitive processes
-pub trait ActionPicker : Send
+pub trait Strategy : Send
 {
-    fn pick_action<'a>(&'a self, state: &'a PrimeState) -> PartyAction;
+    fn run_strategy<'a>(&'a self, pctx: &mut PartyContext, state: &'a PrimeState) -> Option<PrimProcTransf<'a>>;
 }
 
-struct DeterministPicker;
-struct RandomPicker;
-
-impl Default for Box<dyn ActionPicker>
+impl Default for Box<dyn Strategy>
 {
     fn default() -> Self
     {
-        Box::new(DeterministPicker)
-    }
-}
-
-impl ActionPicker for DeterministPicker
-{
-    fn pick_action<'a>(&'a self, state: &'a PrimeState) -> PartyAction
-    {
-        match state.get(0) {
-            Some(proc) => PartyAction::RunPrimary(proc),
-            None => PartyAction::End,
-        }
-    }
-}
-
-impl ActionPicker for RandomPicker
-{
-    fn pick_action(&self, state: &PrimeState) -> PartyAction
-    {
-        todo!();
+        Box::new(SimpleDetermStrat::default())
     }
 }
