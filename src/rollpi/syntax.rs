@@ -3,7 +3,7 @@ use std::{collections::HashSet};
 #[derive(Debug, Clone)]
 pub struct ChName(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcVar(pub String);
 
 #[derive(Debug, Clone)]

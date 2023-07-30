@@ -151,10 +151,12 @@ impl Participant
         let (ctx, state, strat) = self.borrow_data();
         let action = strat.run_strategy(ctx, &state);
         
-        if let Some(PrimProcTransf(_tag, proc)) = action {
-            state.extend(proc.into_iter())
+        // Remove the ran process, append the new processes
+        if let Some(PrimProcTransf(pos, proc)) = action {
+            state.swap_remove(pos);
+            state.extend(proc.into_iter());
         }
-    }
+    }   
 
     fn rollback_logic(self: &Self)
     {

@@ -4,7 +4,7 @@ use crate::rollpi::{syntax::{PrimeState, TaggedPrimProc, Process, ProcVar, TagVa
 
 use super::{actions::ActionInterpreter, strategies::SimpleDeterministic::SimpleDetermStrat};
 
-pub struct PrimProcTransf<'a>(pub &'a TaggedPrimProc, pub PrimeState);
+pub struct PrimProcTransf(pub usize, pub PrimeState);
 
 pub enum ActionData
 {
@@ -17,7 +17,7 @@ pub enum ActionData
 //   to take from one of its primitive processes
 pub trait Strategy : Send
 {
-    fn run_strategy<'a>(&'a self, pctx: &mut PartyContext, state: &'a PrimeState) -> Option<PrimProcTransf<'a>>;
+    fn run_strategy<'a>(&'a self, pctx: &mut PartyContext, state: &'a PrimeState) -> Option<PrimProcTransf>;
 }
 
 impl Default for Box<dyn Strategy>
