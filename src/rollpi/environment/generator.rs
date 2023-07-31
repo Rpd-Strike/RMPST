@@ -7,7 +7,7 @@ use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_proces
 use super::{components::{actions::ActionInterpreter, picker::Strategy}, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext, TODO_S}, history::{HistoryContext, HistoryParticipant}}, types::{MemoryPiece}};
 
 #[derive(Default)]
-struct Generator
+pub struct Generator
 {
     participants: HashMap<String, (Box<dyn Strategy>, PrimeState)>,
 }
@@ -59,7 +59,7 @@ impl Generator
         return false;
     }
 
-    fn generate_participants(self: Self) -> (Vec<Participant>, HistoryParticipant)
+    pub fn generate_participants(self: Self) -> (Vec<Participant>, HistoryParticipant)
     {
         // TODO: Create channels and create copy for each of the participants
         let channels = self.participants.iter()
@@ -69,9 +69,9 @@ impl Generator
                 })
                 .flatten().collect::<HashSet<_>>()
             })
-            .flatten();
+            .flatten().collect::<HashSet<_>>();
 
-        let partChPool = PartyChPool::new(channels);
+        let partChPool = PartyChPool::new(channels.into_iter());
         let mut memory_context = HistoryContext::default();
 
         let mut create_party_context = |id: &String| {

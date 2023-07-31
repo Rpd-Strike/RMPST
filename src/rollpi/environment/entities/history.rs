@@ -89,9 +89,11 @@ impl HistoryParticipant
 
 impl Runnable for HistoryParticipant
 {
-    fn run(self: Self)
+    fn run(mut self: Self)
     {
-        
+        loop {
+            self.run_tag_cycle();
+        }
     }
 }
 

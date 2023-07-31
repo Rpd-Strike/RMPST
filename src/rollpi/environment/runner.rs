@@ -8,7 +8,7 @@ pub struct RunningContext
     pub hist: HistoryParticipant,
 }
 
-struct Runner
+pub struct Runner
 {
     context: RunningContext,
 }
@@ -24,15 +24,25 @@ impl Runner
 
     pub fn run(self: Self)
     {
+        let mut handles = vec![];
+
         // start the participants on different threads
         for p in self.context.parties {
-            thread::spawn(move || {
+            let h = thread::spawn(move || {
                 p.run();
             });
+
+            handles.push(h);
         };
 
-        thread::spawn(move || {
+        let hist_h = thread::spawn(move || {
             self.context.hist.run();
         });
+        handles.push(hist_h);
+
+        // wait for all threads to finish
+        for h in handles {
+            h.join().unwrap();
+        }
     }
 }

@@ -11,7 +11,13 @@ pub trait ActionInterpreter : Send
         -> Option<PartyComm>
     {
         let recv_channel = context.get_comm_ctx().chan_msg_ctx(&id).recv_channel;
-        recv_channel.try_recv().ok()
+        let data = recv_channel.try_recv().ok();
+
+        if data.is_some() {
+            println!("Probe ok on channel {:?}", id);
+        }
+
+        data
     }
 }
 

@@ -1,3 +1,4 @@
+use core::time;
 use std::collections::HashMap;
 use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState}};
 
@@ -93,6 +94,7 @@ impl PartyChPool
         let mut senders = HashMap::new();
 
         for id in it {
+            println!("Creating channel-pair for {}", id);
             let (tx, rx) = unbounded::<PartyComm>();
             receivers.insert(id.clone(), rx);
             senders.insert(id, tx);
@@ -155,6 +157,9 @@ impl Participant
         if let Some(PrimProcTransf(pos, proc)) = action {
             state.swap_remove(pos);
             state.extend(proc.into_iter());
+        } else {
+            println!("I am done .... {}", ctx.get_id());
+            std::thread::sleep(time::Duration::from_secs(2));
         }
     }   
 

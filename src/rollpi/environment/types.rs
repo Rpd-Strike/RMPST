@@ -4,6 +4,7 @@
 
 use crate::rollpi::syntax::{Process, ProcTag, ChName, ProcVar, TagVar, TagKey};
 
+#[derive(Debug)]
 pub struct PartyComm
 {
     pub sender_id: String,

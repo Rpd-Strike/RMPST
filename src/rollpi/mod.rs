@@ -1,3 +1,4 @@
 pub mod reductions;
-mod syntax;
+pub mod syntax;
 pub mod environment;
+pub mod examples;
