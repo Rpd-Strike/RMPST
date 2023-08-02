@@ -20,7 +20,7 @@ pub struct HistoryParticipant
     // links created by joining communication
     join_links: HashMap<ProcTag, ProcTag>,
     // links created by branching in parallel some process
-    branch_links: HashMap<TagKey, Vec<ProcTag>>,
+    branch_links: HashMap<ProcTag, Vec<ProcTag>>,
 }
 
 #[derive(Default)]
@@ -50,25 +50,51 @@ impl HistoryParticipant
         }
     }
 
+    fn _generate_links(br_links: &mut HashMap<ProcTag, Vec<ProcTag>>, join_links: &mut HashMap<ProcTag, ProcTag>,  send_t: &ProcTag, recv_t: &ProcTag, new_t: &ProcTag)
+    {
+        let mut update_branch_links = |child_t: &ProcTag| {
+            if let ProcTag::PTSplit(_piece, _nr, orig_t) = child_t {
+                match br_links.get_mut(&ProcTag::PTKey(orig_t.clone())) {
+                    Some(deps) => {
+                        deps.push(child_t.clone());
+                    },
+                    None => {
+                        br_links.insert(ProcTag::PTKey(orig_t.clone()), vec![child_t.clone()]);
+                    },
+                }
+            }    
+        };
+
+        update_branch_links(send_t);
+        update_branch_links(recv_t);
+        
+        // Update join links data structure
+        join_links.insert(recv_t.clone(), new_t.clone());
+        join_links.insert(send_t.clone(), new_t.clone());
+    }
+
     // Tries to get a tag message from all the participants and process/respond
     fn run_tag_cycle(self: &mut Self)
     {
-        for (_name, recv) in &self.ctx.hist_tag_recv {
+        let (hctx, br_links, join_links) = (&self.ctx, &mut self.branch_links, &mut self.join_links);
+        // Poll for receiving tagging messages
+        for (_name, recv) in &hctx.hist_tag_recv {
             while let Ok(MemoryPiece{
                 ids: (id_send, id_recv), 
                 sender: (sender_tag, _), 
                 receiver: (recv_tag, _), 
                 new_mem_tag}) = recv.try_recv() 
             {
+                // Update tag owner data structure
                 let new_tag = ProcTag::PTKey(new_mem_tag.clone());
                 self.tag_owner.insert(new_tag.clone(), id_recv.clone());
                 self.tag_owner.insert(sender_tag.clone(), id_send.clone());
                 self.tag_owner.insert(recv_tag.clone(), id_recv.clone());
 
-                self.join_links.insert(sender_tag, new_tag.clone());
-                self.join_links.insert(recv_tag, new_tag.clone());
-
-                if let Some(x) = self.ctx.hist_not_send.get(&id_recv) {
+                // update causal dependency links
+                HistoryParticipant::_generate_links(br_links, join_links, &sender_tag, &recv_tag, &ProcTag::PTKey(new_mem_tag.clone())); 
+                
+                if let Some(x) = hctx.hist_not_send.get(&id_recv) {
                     x.send(new_mem_tag);
                 }
             }

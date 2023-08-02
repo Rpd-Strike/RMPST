@@ -18,7 +18,9 @@ pub type PrimeState = Vec<TaggedPrimProc>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProcTag 
 {
+    // A simple identifier, usually meaning the process is not a parallel composition
     PTKey(TagKey),
+    // (paralel piece of new proc, nr_in_order, original_proc)
     PTSplit(TagKey, i32, TagKey),
 }
 
