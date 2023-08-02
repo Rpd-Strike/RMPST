@@ -24,7 +24,10 @@ impl ActionInterpreter for SimpleDetermStrat
 
         match act_ctx {
             ActionContext::RollK(tag_key) => {
-                todo!()
+                let send_roll_ch = &ctx.get_comm_ctx().rollback_ctx.roll_tag_channel;
+                send_roll_ch.send(ProcTag::PTKey(tag_key.clone()));
+
+                vec![]
             },
             ActionContext::Send(ChName(ch_name), proc, ptag) => {
                 println!("INT: Sending process {:?} with tag {:?} to channel {:?}", proc, ptag, ch_name);
