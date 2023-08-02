@@ -1,6 +1,6 @@
 use core::time;
 use std::collections::HashMap;
-use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState}};
+use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState, ProcTag}};
 
 
 pub trait Runnable : Send
@@ -71,8 +71,8 @@ pub struct TagContext
 
 pub struct RollbackContext
 {
-    pub roll_tag_channel: Sender<TODO_S>,
-    pub freeze_not_channel: Receiver<TODO_S>,
+    pub roll_tag_channel: Sender<ProcTag>,
+    pub freeze_not_channel: Receiver<ProcTag>,
 }
 
 pub struct TODO_S;

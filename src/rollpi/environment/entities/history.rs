@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crossbeam::channel::{Receiver, Sender};
 
 use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag}};
 
-use super::participant::{TODO_S, Runnable};
+use super::participant::{Runnable};
 
 
 // Central place for holding process memories,
@@ -21,6 +21,9 @@ pub struct HistoryParticipant
     join_links: HashMap<ProcTag, ProcTag>,
     // links created by branching in parallel some process
     branch_links: HashMap<ProcTag, Vec<ProcTag>>,
+
+    // frozen tags
+    frozen_tags: HashSet<ProcTag>,
 }
 
 #[derive(Default)]
@@ -31,12 +34,12 @@ pub struct HistoryContext
     // Channels for sending notifications of tag creations
     pub hist_not_send: HashMap<String, Sender<TagKey>>,
 
+    // TODO: This one can be just a mpsc channel
     // Channels for receiving rollback requests
-    pub roll_tag_recv: HashMap<String, Receiver<TODO_S>>,
+    pub roll_tag_recv: HashMap<String, Receiver<ProcTag>>,
     // Channels for sending freeze signals
-    pub roll_frz_send: HashMap<String, Sender<TODO_S>>,
+    pub roll_frz_send: HashMap<String, Sender<ProcTag>>,
 }
-
 
 impl HistoryParticipant
 {
@@ -47,6 +50,7 @@ impl HistoryParticipant
             tag_owner: HashMap::new(),
             join_links: HashMap::new(),
             branch_links: HashMap::new(),
+            frozen_tags: HashSet::new(),
         }
     }
 
@@ -101,16 +105,32 @@ impl HistoryParticipant
         }
     }
 
+    fn _send_freeze_sgn_dfs(ctx: &HistoryContext, frozen_tags: &mut HashSet<ProcTag>, tag_owner: &HashMap<ProcTag, String>, p: &ProcTag) 
+    {
+        if frozen_tags.contains(p) {
+            return ();
+        }
+
+        // TODO: Make a context to avoid unwrap
+        let owner = tag_owner.get(p).unwrap();
+        let signal_ch = ctx.roll_frz_send.get(owner).unwrap();
+        signal_ch.send(p.clone());
+
+        frozen_tags.insert(p.clone());
+    }
+
     // Receives a rollback request from a participant and sends a freeze signal to all relevant participants
     fn run_rollback_cycle(self: &mut Self)
     {
-        for (_name, recv) in &self.ctx.roll_tag_recv {
-            while let Ok(TODO_S) = recv.try_recv() {
-                // TODO: ...
-                todo!();
+        let (frozen_tags, tag_owner, ctx) = (&mut self.frozen_tags, &self.tag_owner, &self.ctx);
+        for (_name, recv) in &ctx.roll_tag_recv {
+            while let Ok(proc_tag) = recv.try_recv() {
+                HistoryParticipant::_send_freeze_sgn_dfs(ctx, frozen_tags, tag_owner, &proc_tag);
             }
         }
     }
+
+
 }
 
 impl Runnable for HistoryParticipant

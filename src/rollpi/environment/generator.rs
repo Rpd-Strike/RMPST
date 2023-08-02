@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 
 use crossbeam::channel::unbounded;
 
-use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey};
+use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey, ProcTag};
 
 use super::{components::{actions::ActionInterpreter, picker::Strategy}, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext, TODO_S}, history::{HistoryContext, HistoryParticipant}}, types::{MemoryPiece}};
 
@@ -78,8 +78,8 @@ impl Generator
             let (h_tag_send, h_tag_recv) = unbounded::<MemoryPiece>();
             let (h_not_send, h_not_recv) = unbounded::<TagKey>();
 
-            let (r_tag_send, r_tag_recv) = unbounded::<TODO_S>();
-            let (r_frz_send, r_frz_recv) = unbounded::<TODO_S>();
+            let (r_tag_send, r_tag_recv) = unbounded::<ProcTag>();
+            let (r_frz_send, r_frz_recv) = unbounded::<ProcTag>();
 
             memory_context.hist_tag_recv.insert(id.clone(), h_tag_recv);
             memory_context.hist_not_send.insert(id.clone(), h_not_send);
