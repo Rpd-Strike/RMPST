@@ -1,5 +1,5 @@
 use core::panic;
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct ChName(pub String);

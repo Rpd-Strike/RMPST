@@ -4,7 +4,7 @@ use crossbeam::channel::{Receiver, Sender};
 
 use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag}};
 
-use super::participant::{Runnable};
+use super::participant::Runnable;
 
 
 // Central place for holding process memories,
@@ -99,7 +99,8 @@ impl HistoryParticipant
                 HistoryParticipant::_generate_links(br_links, join_links, &sender_tag, &recv_tag, &ProcTag::PTKey(new_mem_tag.clone())); 
                 
                 if let Some(x) = hctx.hist_not_send.get(&id_recv) {
-                    x.send(new_mem_tag);
+                    // TODO: ? Check what to do in case of crash
+                    let _ = x.send(new_mem_tag);
                 }
             }
         }
@@ -114,7 +115,8 @@ impl HistoryParticipant
         // TODO: Make a context to avoid unwrap
         let owner = tag_owner.get(p).unwrap();
         let signal_ch = ctx.roll_frz_send.get(owner).unwrap();
-        signal_ch.send(p.clone());
+        // TODO: ? Check what to do in case of crash
+        let _ = signal_ch.send(p.clone());
 
         frozen_tags.insert(p.clone());
     }
@@ -139,6 +141,7 @@ impl Runnable for HistoryParticipant
     {
         loop {
             self.run_tag_cycle();
+            self.run_rollback_cycle();
         }
     }
 }

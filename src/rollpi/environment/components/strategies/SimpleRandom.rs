@@ -1,1 +1,2 @@
-pub struct SimpleRandStrat {}
+#[allow(dead_code)]
+pub struct SimpleRandStrat {  }

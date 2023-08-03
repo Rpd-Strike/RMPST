@@ -32,9 +32,9 @@ pub fn transform_to_prime_state(proc: Process, original_tag: TagKey) -> PrimeSta
     match proc {
         Process::End => 
             vec![TaggedPrimProc{ proc: PrimProcess::End, tag: ptag }],
-        Process::PVar(var) => 
+        Process::PVar(_var) => 
             panic!("PVar should not be represent a prime state (should be substituted)"),
-        Process::RollV(t_var) =>
+        Process::RollV(_t_var) =>
             panic!("Tvar should not be represent a prime state (should be substituted)"),
         Process::Par(a, b) => {
             let prime_a = transform_to_prime_state(*a, original_tag.clone());

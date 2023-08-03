@@ -23,7 +23,7 @@ fn run_processes_as_parties(procs: Vec<(String, Process)>)
 fn main() {
     let ch_a = ChName("a".to_string());
     // using this should give an error
-    let cont_1 = Process::PVar(ProcVar("p".to_string()));
+    let _cont_1 = Process::PVar(ProcVar("p".to_string()));
     // using this option should work ok
     let cont_2 = Process::Send(ChName("b".to_string()), Box::new(Process::End));
 

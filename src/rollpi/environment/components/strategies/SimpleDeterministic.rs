@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::{ActionInterpreter}}, entities::participant::{PartyCommCtx, PartyContext}, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}, reductions}};
+use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::ActionInterpreter}, entities::participant::PartyContext, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}, reductions};
 
 #[derive(Debug)]
 pub enum ActionContext<'a>
@@ -25,7 +25,8 @@ impl ActionInterpreter for SimpleDetermStrat
         match act_ctx {
             ActionContext::RollK(tag_key) => {
                 let send_roll_ch = &ctx.get_comm_ctx().rollback_ctx.roll_tag_channel;
-                send_roll_ch.send(ProcTag::PTKey(tag_key.clone()));
+                // TODO: ? See for crash handling
+                let _ = send_roll_ch.send(ProcTag::PTKey(tag_key.clone()));
 
                 vec![]
             },
@@ -59,8 +60,10 @@ impl ActionInterpreter for SimpleDetermStrat
 
                 let recv_ch = &ctx.get_comm_ctx().history_ctx.hist_conf_channel;
                 match recv_ch.recv() {
-                    Err(err) => todo!(),
-                    Ok(x) => {
+                    Err(_err) => todo!(),
+                    Ok(rec_tag_key) => {
+                        assert_eq!(rec_tag_key, new_tag);
+                        
                         let new_proc = reductions::perform_alpha_conv_proc(next_proc, p_var.clone(), in_data.process, t_var.clone());
                         
                         reductions::transform_to_prime_state(new_proc, new_tag)

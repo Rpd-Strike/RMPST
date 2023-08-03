@@ -4,7 +4,7 @@ use crossbeam::channel::unbounded;
 
 use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey, ProcTag};
 
-use super::{components::{actions::ActionInterpreter, picker::Strategy}, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext}, history::{HistoryContext, HistoryParticipant}}, types::{MemoryPiece}};
+use super::{components::picker::Strategy, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext}, history::{HistoryContext, HistoryParticipant}}, types::MemoryPiece};
 
 #[derive(Default)]
 pub struct Generator
@@ -70,7 +70,7 @@ impl Generator
             })
             .flatten().collect::<HashSet<_>>();
 
-        let partChPool = PartyChPool::new(channels.into_iter());
+        let part_ch_pool = PartyChPool::new(channels.into_iter());
         let mut memory_context = HistoryContext::default();
 
         let mut create_party_context = |id: &String| {
@@ -86,7 +86,7 @@ impl Generator
             memory_context.roll_frz_send.insert(id.clone(), r_frz_send);
 
             PartyCommCtx {
-                channel_pool: partChPool.clone(),
+                channel_pool: part_ch_pool.clone(),
                 history_ctx: TagContext {
                     hist_tag_channel: h_tag_send,
                     hist_conf_channel: h_not_recv,

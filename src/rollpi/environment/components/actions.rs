@@ -1,6 +1,6 @@
-use crate::rollpi::{syntax::*, environment::{entities::{participant::{PartyContext}}, types::{PartyComm, MemoryPiece}}};
+use crate::rollpi::{syntax::{PrimeState, ChName}, environment::{entities::participant::PartyContext, types::PartyComm}};
 
-use super::{strategies::SimpleDeterministic::{SimpleDetermStrat, ActionContext}, picker::PrimProcTransf};
+use super::strategies::SimpleDeterministic::{SimpleDetermStrat, ActionContext};
 
 pub trait ActionInterpreter : Send
 {
