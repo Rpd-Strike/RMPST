@@ -19,6 +19,7 @@ fn run_processes_as_parties(procs: Vec<(String, Process)>)
     runner.run();
 }
 
+// TODO: Create a module to transform from local types to processes and names
 fn main() {
     let ch_a = ChName("a".to_string());
     // using this should give an error
