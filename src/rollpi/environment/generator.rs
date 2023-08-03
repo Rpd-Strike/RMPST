@@ -4,7 +4,7 @@ use crossbeam::channel::unbounded;
 
 use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey, ProcTag};
 
-use super::{components::{actions::ActionInterpreter, picker::Strategy}, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext, TODO_S}, history::{HistoryContext, HistoryParticipant}}, types::{MemoryPiece}};
+use super::{components::{actions::ActionInterpreter, picker::Strategy}, entities::{participant::{Participant, PartyCommCtx, PartyChPool, TagContext, RollbackContext}, history::{HistoryContext, HistoryParticipant}}, types::{MemoryPiece}};
 
 #[derive(Default)]
 pub struct Generator
@@ -34,7 +34,6 @@ impl Generator
         proc: PrimeState,
         id: Option<String>,
         strategy: Option<Box<dyn Strategy>>,
-        interpreter: Option<Box<dyn ActionInterpreter>>,
     ) -> bool
     {
         // try to add the id given from the argument if not in the hashset
@@ -61,7 +60,7 @@ impl Generator
 
     pub fn generate_participants(self: Self) -> (Vec<Participant>, HistoryParticipant)
     {
-        // TODO: Create channels and create copy for each of the participants
+        // Create channels and create copy for each of the participants
         let channels = self.participants.iter()
             .map(|(_id, (_, proc))| {
                 proc.iter().map(|tag_proc| {

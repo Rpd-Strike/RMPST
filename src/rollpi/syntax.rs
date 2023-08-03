@@ -225,7 +225,7 @@ fn _rec_check_unique_pvar_tvar(proc: &Process, p_env: &mut HashSet<ProcVar>, t_e
     }
 }
 
-pub fn check_all_list(procs: Vec<&Process>) -> bool
+pub fn check_all_list(procs: &Vec<Process>) -> bool
 {
     procs.iter().all(|proc| check_all(proc))
 }

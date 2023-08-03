@@ -75,8 +75,6 @@ pub struct RollbackContext
     pub freeze_not_channel: Receiver<ProcTag>,
 }
 
-pub struct TODO_S;
-
 
 #[derive(Default, Clone)]
 pub struct PartyChPool
@@ -159,7 +157,7 @@ impl Participant
             state.extend(proc.into_iter());
         } else {
             println!("I am done .... {}", ctx.get_id());
-            std::thread::sleep(time::Duration::from_secs(2));
+            std::thread::sleep(time::Duration::from_secs(1));
         }
     }   
 
