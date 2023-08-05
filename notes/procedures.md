@@ -63,3 +63,15 @@ Procedures:
   - Part: For all frozen live processes, send a Dissapear notification to Hist
   - Hist: Receives a Dissapear notification
   - Hist: Send the receiver and sender side processes to the respective owners with a Resurrect msg
+
+------------------------------------
+Chanel stores
+| Communication
+  - Each participant has senders + receivers for all channel names
+
+| Comm confirmation
+  - Each participant has the same Sender for sending tag
+  - History has the Receiver for the sending tag channel
+
+  - Each participant has its own receiver for confirmation
+  - History has a map for sending confirmation for each participant

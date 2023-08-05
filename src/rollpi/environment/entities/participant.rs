@@ -1,6 +1,6 @@
 use core::time;
-use std::collections::HashMap;
-use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState, ProcTag}};
+use std::collections::{HashMap, HashSet};
+use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState, ProcTag, TaggedPrimProc}};
 
 
 pub trait Runnable : Send
@@ -18,11 +18,18 @@ pub trait ContextGetter
 // Holds necessary information to run a participant on a thread
 pub struct Participant
 {
-    state: PrimeState,
+    state: ParticipantState,
     
     strategy: Box<dyn Strategy>,
 
     party_context: PartyContext,
+}
+
+struct ParticipantState
+{
+    pr_state: PrimeState,
+
+    frozen_tags: HashSet<ProcTag>,
 }
 
 pub struct PartyContext
@@ -53,8 +60,10 @@ impl PartyContext
 pub struct PartyCommCtx
 {
     pub channel_pool: PartyChPool,
-    pub history_ctx: TagContext,
+    pub history_ctx: HistTagContext,
     pub rollback_ctx: RollbackContext,
+    pub dissapear_ctx: DissapearContext,
+    pub ressurect_ctx: RessurectContext,
 }
 
 pub struct ChMsgContext<'a>
@@ -63,13 +72,25 @@ pub struct ChMsgContext<'a>
     pub recv_channel: &'a Receiver<PartyComm>,
 }
 
-pub struct TagContext
+pub struct HistTagContext
 {
     pub hist_tag_channel: Sender<MemoryPiece>,
     pub hist_conf_channel: Receiver<TagKey>,
 }
 
 pub struct RollbackContext
+{
+    pub roll_tag_channel: Sender<ProcTag>,
+    pub freeze_not_channel: Receiver<ProcTag>,
+}
+
+pub struct DissapearContext
+{
+    pub diss_tag_channel: Sender<ProcTag>,
+    pub freeze_not_channel: Receiver<ProcTag>,
+}
+
+pub struct RessurectContext
 {
     pub roll_tag_channel: Sender<ProcTag>,
     pub freeze_not_channel: Receiver<ProcTag>,
@@ -136,37 +157,75 @@ impl Participant
     ) -> Self
     {
         Self {
-            state,
+            state: ParticipantState {
+                pr_state: state,
+                frozen_tags: HashSet::default(), 
+            },
             strategy,
             party_context: PartyContext {
                 id,
                 comm_ctx: comm_context,
                 tag_ctx: TagCreator::default(),
-            }
+            },
         }
     }
 
     fn evolve_state(&mut self)
     {
         let (ctx, state, strat) = self.borrow_data();
-        let action = strat.run_strategy(ctx, &state);
-        
+        let action = strat.run_strategy(ctx, &state.pr_state);
+        let pr_state = &mut state.pr_state;
+
         // Remove the ran process, append the new processes
         if let Some(PrimProcTransf(pos, proc)) = action {
-            state.swap_remove(pos);
-            state.extend(proc.into_iter());
+            pr_state.swap_remove(pos);
+            pr_state.extend(proc.into_iter());
         } else {
             println!("I am done .... {}", ctx.get_id());
             std::thread::sleep(time::Duration::from_secs(1));
         }
     }   
 
-    fn rollback_logic(self: &Self)
+    fn _mark_live_proc_as_frozen(f_tag: &ProcTag, pr_state: &PrimeState)
+    {
+        // TODO: Do smarter things here later
+        //       like remembering causal links
+    }
+
+    fn freeze_logic(self: &mut Self)
+    {
+        let (state, ctx) = (&mut self.state, &self.party_context);
+        let ParticipantState{pr_state, frozen_tags} = state;
+
+        while let Ok(tag) = ctx.get_comm_ctx().rollback_ctx.freeze_not_channel.try_recv() {
+            Participant::_mark_live_proc_as_frozen(&tag, pr_state);
+            frozen_tags.insert(tag);
+        }
+    }
+    
+    // For all live processes that are frozen, delete them and send dissapear notif
+    fn dissapear_logic(self: &mut Self)
+    {
+        let (state, ctx) = (&mut self.state, &self.party_context);
+        let ParticipantState{pr_state, frozen_tags} = state;
+
+        pr_state.retain(|TaggedPrimProc { tag, proc }| {
+            if frozen_tags.contains(tag) {
+                // TODO: Send dissapear message
+                ctx.
+                return false
+            } 
+
+            return true
+        })
+    }
+
+    fn ressurect_logic(self: &Self)
     {
         todo!();
     }
 
-    fn borrow_data(&mut self) -> (&mut PartyContext, &mut PrimeState, &dyn Strategy)
+    fn borrow_data(&mut self) -> (&mut PartyContext, &mut ParticipantState, &dyn Strategy)
     {
         (&mut self.party_context, &mut self.state, &*self.strategy)
     }
@@ -178,11 +237,13 @@ impl Runnable for Participant
     fn run(mut self: Self)
     {
         loop {
-            self.evolve_state()
+            self.evolve_state();
 
+            self.freeze_logic();
 
-            // TODO: Implement rollback logic
-            // self.rollback_logic();
+            self.dissapear_logic();
+
+            self.ressurect_logic();
         }
     }
 }
