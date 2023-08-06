@@ -263,8 +263,9 @@ impl Participant
         let (state, ctx) = (&mut self.state, &self.party_context);
         let ress_ch = &ctx.get_comm_ctx().ressurect_ctx.ress_recv_channel;
 
-        while let Ok(msg) = ress_ch.try_recv() {
-            
+        while let Ok(RessurectMsg { descendant_tag: _, tagged_proc }) = ress_ch.try_recv() {
+            state.frozen_tags.remove(&tagged_proc.tag);
+            state.pr_state.append(&mut tagged_proc.to_prime_state());
         }
     }
 

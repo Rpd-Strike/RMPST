@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crossbeam::channel::{Receiver, Sender};
 
-use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, Process}};
+use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, Process, TaggedProc}};
 
 use super::participant::Runnable;
 
@@ -64,8 +64,8 @@ impl HistoryContext
 
 pub struct RessurectMsg
 {
-    pub id: String,
-    pub proc: Process,
+    pub descendant_tag: ProcTag,
+    pub tagged_proc: TaggedProc,
 }
 
 impl HistoryParticipant
@@ -81,7 +81,11 @@ impl HistoryParticipant
         }
     }
 
-    fn _generate_links(br_links: &mut HashMap<ProcTag, Vec<ProcTag>>, join_links: &mut HashMap<ProcTag, ProcTag>,  send_t: &ProcTag, recv_t: &ProcTag, new_t: &ProcTag)
+    fn _generate_links(br_links: &mut HashMap<ProcTag, Vec<ProcTag>>, 
+                       join_links: &mut HashMap<ProcTag, ProcTag>,  
+                       send_t: &ProcTag, 
+                       recv_t: &ProcTag, 
+                       new_t: &ProcTag)
     {
         let mut update_branch_links = |child_t: &ProcTag| {
             if let ProcTag::PTSplit(_piece, _nr, orig_t) = child_t {
@@ -133,6 +137,7 @@ impl HistoryParticipant
         }
     }
 
+    // TODO: Make DFS run through join links & branch links
     fn _send_freeze_sgn_dfs(ctx: &HistoryContext, frozen_tags: &mut HashSet<ProcTag>, tag_owner: &HashMap<ProcTag, String>, p: &ProcTag) 
     {
         if frozen_tags.contains(p) {
@@ -148,6 +153,7 @@ impl HistoryParticipant
         frozen_tags.insert(p.clone());
     }
 
+    // TODO: Make DFS run through join links & branch links
     // Receives a rollback request from a participant and sends a freeze signal to all relevant participants
     fn run_rollback_cycle(self: &mut Self)
     {
@@ -159,9 +165,13 @@ impl HistoryParticipant
         }
     }
 
+    // TODO: Get the sender and sender info with id, and send to correct 2 targets, the msgs to be recreated
     fn run_dissapear_cycle(self: &Self)
     {
-        // 
+        while let Ok(tag) = self.ctx.diss_tag_recv.try_recv() {
+            // Find the owner of the send and receive branch of process produced out of the given Tag
+            
+        } 
     }
 
 }
