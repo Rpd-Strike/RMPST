@@ -202,6 +202,8 @@ impl Participant
     }
     
     // For all live processes that are frozen, delete them and send dissapear notif
+    // For all the split processes, roll back to the united one, and dissapear that one 
+    //     (by dissapearing all the fragments and sending dissapear notif for the original one)
     fn dissapear_logic(self: &mut Self)
     {
         let (state, ctx) = (&mut self.state, &self.party_context);
@@ -213,7 +215,7 @@ impl Participant
             if frozen_tags.contains(tag) {
                 match tag {
                     ProcTag::PTKey(_) => {
-                        let diss_ch = &ctx.comm_ctx.dissapear_ctx.diss_send_channel;
+                        let diss_ch = &ctx.get_comm_ctx().dissapear_ctx.diss_send_channel;
                         // TODO: ? Decide if ignore or not send error
                         let _ = diss_ch.send(tag.clone());
                         assert!(frozen_tags.remove(tag));
@@ -221,22 +223,39 @@ impl Participant
                         false
                     },
                     ProcTag::PTSplit(_frag_t, total_cnt, og_t) => {
-                        key_fragments.entry(og_t.clone())
-                            .and_modify(|curr_cnt| *curr_cnt -= 1)
-                            .or_insert(*total_cnt - 1);
-                        
-                        // Try smarter if - add way
-                        // if !key_fragments.contains_key(og_t) {
-                        //     key_fragments.insert(og_t.clone(), 0);
-                        // }
+                        let curr_missing = key_fragments.entry(og_t.clone())
+                            .or_insert(*total_cnt);
+                        // subtract one to signal adding the current process
+                        *curr_missing -= 1;
 
                         true
                     },
                 }
             } else {
-                false
+                true
             }
-        })
+        });
+
+        // Retain only the original processes that are wholly frozen
+        key_fragments.retain(|_key, missing_cnt| {
+            *missing_cnt == 0
+        });
+        
+        // Eliminate the frozen fragments
+        pr_state.retain(|TaggedPrimProc { tag, proc: _ }| {
+            if let ProcTag::PTSplit(_fr_key, _total_cnt, orig_key) = tag {
+                !key_fragments.contains_key(orig_key)
+            } else {
+                true
+            }
+        });
+
+        // Send the dissapear notifications
+        key_fragments.keys().for_each(|k| {
+            let diss_ch = &ctx.get_comm_ctx().dissapear_ctx.diss_send_channel;
+            // TODO: ? Decide if ignore or not send error
+            let _ = diss_ch.send(ProcTag::PTKey(k.clone()));
+        });
     }
 
     fn ressurect_logic(self: &Self)
