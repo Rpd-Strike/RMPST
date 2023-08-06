@@ -86,14 +86,12 @@ pub struct RollbackContext
 
 pub struct DissapearContext
 {
-    pub diss_tag_channel: Sender<ProcTag>,
-    pub freeze_not_channel: Receiver<ProcTag>,
+    pub diss_send_channel: Sender<ProcTag>,
 }
 
 pub struct RessurectContext
 {
-    pub roll_tag_channel: Sender<ProcTag>,
-    pub freeze_not_channel: Receiver<ProcTag>,
+    pub ress_recv_channel: Receiver<RessurectMsg>,
 }
 
 
@@ -186,7 +184,7 @@ impl Participant
         }
     }   
 
-    fn _mark_live_proc_as_frozen(f_tag: &ProcTag, pr_state: &PrimeState)
+    fn _mark_live_proc_as_frozen(_f_tag: &ProcTag, _pr_state: &PrimeState)
     {
         // TODO: Do smarter things here later
         //       like remembering causal links
@@ -208,21 +206,43 @@ impl Participant
     {
         let (state, ctx) = (&mut self.state, &self.party_context);
         let ParticipantState{pr_state, frozen_tags} = state;
-
-        pr_state.retain(|TaggedPrimProc { tag, proc }| {
+        let mut key_fragments = HashMap::new();
+        
+        // get rid of processes which aren't "parallel split"
+        pr_state.retain(|TaggedPrimProc { tag, .. }| {
             if frozen_tags.contains(tag) {
-                // TODO: Send dissapear message
-                ctx.
-                return false
-            } 
+                match tag {
+                    ProcTag::PTKey(_) => {
+                        let diss_ch = &ctx.comm_ctx.dissapear_ctx.diss_send_channel;
+                        // TODO: ? Decide if ignore or not send error
+                        let _ = diss_ch.send(tag.clone());
+                        assert!(frozen_tags.remove(tag));
 
-            return true
+                        false
+                    },
+                    ProcTag::PTSplit(_frag_t, total_cnt, og_t) => {
+                        key_fragments.entry(og_t.clone())
+                            .and_modify(|curr_cnt| *curr_cnt -= 1)
+                            .or_insert(*total_cnt - 1);
+                        
+                        // Try smarter if - add way
+                        // if !key_fragments.contains_key(og_t) {
+                        //     key_fragments.insert(og_t.clone(), 0);
+                        // }
+
+                        true
+                    },
+                }
+            } else {
+                false
+            }
         })
     }
 
     fn ressurect_logic(self: &Self)
     {
-        todo!();
+        // TODO: !!!
+        // todo!();
     }
 
     fn borrow_data(&mut self) -> (&mut PartyContext, &mut ParticipantState, &dyn Strategy)
@@ -250,4 +270,4 @@ impl Runnable for Participant
 
 use crossbeam::channel::{Sender, Receiver, unbounded};
 
-use super::tag_creator::TagCreator;
+use super::{tag_creator::TagCreator, history::RessurectMsg};

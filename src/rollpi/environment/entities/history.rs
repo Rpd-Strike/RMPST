@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crossbeam::channel::{Receiver, Sender};
 
-use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag}};
+use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, Process}};
 
 use super::participant::Runnable;
 
@@ -26,7 +26,6 @@ pub struct HistoryParticipant
     frozen_tags: HashSet<ProcTag>,
 }
 
-#[derive(Default)]
 pub struct HistoryContext
 {
     // Channels for receiving tag creations
@@ -39,6 +38,34 @@ pub struct HistoryContext
     pub roll_tag_recv: HashMap<String, Receiver<ProcTag>>,
     // Channels for sending freeze signals
     pub roll_frz_send: HashMap<String, Sender<ProcTag>>,
+
+    pub diss_tag_recv: Receiver<ProcTag>,
+
+    pub ress_tag_send: HashMap<String, Sender<RessurectMsg>>,
+}
+
+impl HistoryContext
+{
+    pub fn new(arg_diss_tag_recv: Receiver<ProcTag>) -> Self
+    {
+        Self {
+            hist_tag_recv: HashMap::default(),
+            hist_not_send: HashMap::default(),
+
+            roll_tag_recv: HashMap::default(),
+            roll_frz_send: HashMap::default(),
+
+            diss_tag_recv: arg_diss_tag_recv,
+
+            ress_tag_send: HashMap::default(),
+        }
+    }
+}
+
+pub struct RessurectMsg
+{
+    pub id: String,
+    pub proc: Process,
 }
 
 impl HistoryParticipant

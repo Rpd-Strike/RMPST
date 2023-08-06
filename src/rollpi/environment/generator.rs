@@ -2,9 +2,9 @@ use std::collections::{HashSet, HashMap};
 
 use crossbeam::channel::unbounded;
 
-use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, prime_proc_to_process, TagKey, ProcTag};
+use crate::rollpi::syntax::{PrimeState, all_chn_names_proc, TagKey, ProcTag};
 
-use super::{components::picker::Strategy, entities::{participant::{Participant, PartyCommCtx, PartyChPool, HistTagContext, RollbackContext}, history::{HistoryContext, HistoryParticipant}}, types::MemoryPiece};
+use super::{components::picker::Strategy, entities::{participant::{Participant, PartyCommCtx, PartyChPool, HistTagContext, RollbackContext, DissapearContext, RessurectContext}, history::{HistoryContext, HistoryParticipant, RessurectMsg}}, types::MemoryPiece};
 
 #[derive(Default)]
 pub struct Generator
@@ -64,14 +64,17 @@ impl Generator
         let channels = self.participants.iter()
             .map(|(_id, (_, proc))| {
                 proc.iter().map(|tag_proc| {
-                    all_chn_names_proc(&prime_proc_to_process(&tag_proc.proc))
+                    all_chn_names_proc(&tag_proc.proc.clone().to_process())
                 })
                 .flatten().collect::<HashSet<_>>()
             })
             .flatten().collect::<HashSet<_>>();
 
         let part_ch_pool = PartyChPool::new(channels.into_iter());
-        let mut memory_context = HistoryContext::default();
+        
+        let (diss_send, diss_recv) = unbounded::<ProcTag>();
+        let mut memory_context = HistoryContext::new(diss_recv);
+        
 
         let mut create_party_context = |id: &String| {
             let (h_tag_send, h_tag_recv) = unbounded::<MemoryPiece>();
@@ -80,15 +83,13 @@ impl Generator
             let (r_tag_send, r_tag_recv) = unbounded::<ProcTag>();
             let (r_frz_send, r_frz_recv) = unbounded::<ProcTag>();
 
-            let (d_tag_send, d_tag_recv) = unbounded::<ProcTag>();
-            let (s_tag_send, s_tag_recv) = unbounded::<ProcTag>();
+            let (s_tag_send, s_tag_recv) = unbounded::<RessurectMsg>();
 
             memory_context.hist_tag_recv.insert(id.clone(), h_tag_recv);
             memory_context.hist_not_send.insert(id.clone(), h_not_send);
             memory_context.roll_tag_recv.insert(id.clone(), r_tag_recv);
             memory_context.roll_frz_send.insert(id.clone(), r_frz_send);
-            memory_context.diss_tag_recv.insert(id.clone(), d_tag_recv);
-            memory_context.ress_tag_send.insert(id.clone(), r_tag_send);
+            memory_context.ress_tag_send.insert(id.clone(), s_tag_send);
 
             PartyCommCtx {
                 channel_pool: part_ch_pool.clone(),
@@ -100,8 +101,12 @@ impl Generator
                     roll_tag_channel: r_tag_send,
                     freeze_not_channel: r_frz_recv,
                 },
-                dissapear_send: d_tag_send,
-                ressurect_recv: s_tag_recv,
+                dissapear_ctx: DissapearContext {
+                    diss_send_channel: diss_send.clone(),
+                },
+                ressurect_ctx: RessurectContext {
+                    ress_recv_channel: s_tag_recv,
+                },
             }
         };
 

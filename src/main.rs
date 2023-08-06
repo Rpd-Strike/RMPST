@@ -5,7 +5,8 @@ fn run_processes_as_parties(procs: Vec<(String, Process)>)
     let mut generator = generator::Generator::default();
     
     procs.iter().for_each(|(id, p)| {
-        let state = process_to_prime_state(p, TagKey(id.clone()));
+        let new_tag = ProcTag::PTKey(TagKey(id.clone()));
+        let state = p.clone().to_tagged_process(new_tag).to_prime_state();
         generator.take_participant_conf(state, Some(id.clone()), None);
     });
 

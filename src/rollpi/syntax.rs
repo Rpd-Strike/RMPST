@@ -24,16 +24,6 @@ pub enum ProcTag
     PTSplit(TagKey, i32, TagKey),
 }
 
-// A primitive process is the one that can appear as a top level process in the thread normal form
-#[derive(Debug, Clone)]
-pub enum PrimProcess
-{
-    End,
-    RollK(TagKey),
-    Send(ChName, Process),
-    Recv(ChName, ProcVar, TagVar, Process),
-}
-
 // Our convention is that a process does not have free variables either for channels or process variables
 #[derive(Debug, Clone)]
 pub enum Process
@@ -47,6 +37,22 @@ pub enum Process
     RollK(TagKey),
 }
 
+pub struct TaggedProc
+{
+    pub tag: ProcTag,
+    pub proc: Process,
+}
+
+// A primitive process is the one that can appear as a top level process in the thread normal form
+#[derive(Debug, Clone)]
+pub enum PrimProcess
+{
+    End,
+    RollK(TagKey),
+    Send(ChName, Process),
+    Recv(ChName, ProcVar, TagVar, Process),
+}
+
 #[derive(Debug, Clone)]
 pub struct TaggedPrimProc
 {
@@ -54,58 +60,80 @@ pub struct TaggedPrimProc
     pub proc: PrimProcess,
 }
 
-pub fn prime_proc_to_process(prime: &PrimProcess) -> Process
+impl Process 
 {
-    match prime {
-        PrimProcess::End => 
-            Process::End,
-        PrimProcess::RollK(tag) => 
-            Process::RollK(tag.clone()),
-        PrimProcess::Send(ch_name, proc) => 
-            Process::Send(ch_name.clone(), Box::new(proc.clone())),
-        PrimProcess::Recv(ch_name, p_var, t_var, proc) => 
-            Process::Recv(ch_name.clone(), p_var.clone(), t_var.clone(), Box::new(proc.clone())),
-    }
-}
-
-pub fn process_to_prime_proc(proc: &Process) -> PrimProcess
-{
-    match proc {
-        Process::PVar(_) => panic!("Process to prime process conversion: PVar not allowed"),
-        Process::Par(_, _) => panic!("Process to prime process conversion: Par not allowed"),
-        Process::End => 
-            PrimProcess::End,
-        Process::Send(chn, p) => 
-            PrimProcess::Send(chn.clone(), *p.clone()),
-        Process::Recv(chn, pv, tv, p) => 
-            PrimProcess::Recv(chn.clone(), pv.clone(), tv.clone(), *p.clone()),
-        Process::RollV(_) => panic!("Process to prime process conversion: RollV not allowed, only RollK(ey) allowed"),
-        Process::RollK(roll_key) => 
-            PrimProcess::RollK(roll_key.clone()),
-    }
-}
-
-pub fn process_to_prime_state(proc: &Process, og_tag: TagKey) -> PrimeState
-{
-    get_first_order_par_processes(proc.clone())
-    .iter().enumerate().map(|(i, p)| {
-        let tag = ProcTag::PTSplit(TagKey(format!("sp_{}_{}", i, og_tag.0)), i as i32, og_tag.clone());
-        TaggedPrimProc {
-            tag,
-            proc: process_to_prime_proc(p),
+    pub fn to_prime_process(self: &Self) -> PrimProcess
+    {
+        match self {
+            Process::PVar(_) => panic!("Process to prime process conversion: PVar not allowed"),
+            Process::Par(_, _) => panic!("Process to prime process conversion: Par not allowed"),
+            Process::End => 
+                PrimProcess::End,
+            Process::Send(chn, p) => 
+                PrimProcess::Send(chn.clone(), *p.clone()),
+            Process::Recv(chn, pv, tv, p) => 
+                PrimProcess::Recv(chn.clone(), pv.clone(), tv.clone(), *p.clone()),
+            Process::RollV(_) => panic!("Process to prime process conversion: RollV not allowed, only RollK(ey) allowed"),
+            Process::RollK(roll_key) => 
+                PrimProcess::RollK(roll_key.clone()),
         }
-    }).collect()
+    }
+
+    pub fn to_tagged_process(self: Self, arg_tag: ProcTag) -> TaggedProc
+    {
+        TaggedProc { tag: arg_tag, proc: self }
+    }
+
+    fn get_first_order_par_processes(self: Self) -> Vec<Process>
+    {
+        if let Process::Par(a, b) = self {
+            let mut vec_a = a.get_first_order_par_processes();
+            let mut vec_b = b.get_first_order_par_processes();
+            vec_a.append(&mut vec_b);
+            vec_a
+        } else {
+            vec![self]
+        }
+    }
 }
 
-fn get_first_order_par_processes(proc: Process) -> Vec<Process>
+impl PrimProcess 
 {
-    if let Process::Par(a, b) = proc {
-        let mut vec_a = get_first_order_par_processes(*a);
-        let mut vec_b = get_first_order_par_processes(*b);
-        vec_a.append(&mut vec_b);
-        vec_a
-    } else {
-        vec![proc]
+    pub fn to_process(self: Self) -> Process
+    {
+        match self {
+            PrimProcess::End => 
+                Process::End,
+            PrimProcess::RollK(tag) => 
+                Process::RollK(tag),
+            PrimProcess::Send(ch_name, proc) => 
+                Process::Send(ch_name, Box::new(proc)),
+            PrimProcess::Recv(ch_name, p_var, t_var, proc) => 
+                Process::Recv(ch_name, p_var, t_var, Box::new(proc)),
+        }
+    }
+}
+
+impl TaggedProc
+{
+    pub fn to_prime_state(self: Self) -> PrimeState
+    {
+        let Self { tag, proc } = self; 
+        let og_key = match tag {
+            ProcTag::PTKey(t_key) => t_key,
+            ProcTag::PTSplit(t_key, _cnt, _og_t) => t_key,
+        };
+
+        let vec_procs = proc.get_first_order_par_processes();
+        let total_cnt_procs = vec_procs.len();
+
+        vec_procs.iter().enumerate().map(|(i, p)| {
+            let frag_tag = ProcTag::PTSplit(TagKey(format!("sp_{}_{}", i, og_key.0)), total_cnt_procs as i32, og_key.clone());
+            TaggedPrimProc {
+                tag: frag_tag,
+                proc: p.to_prime_process(),
+            }
+        }).collect()
     }
 }
 
@@ -139,7 +167,7 @@ pub fn all_chn_names_proc(proc: &Process) -> HashSet<String>
 pub fn all_chn_names_state(proc: &PrimeState) -> HashSet<String>
 {
     proc.iter().map(|TaggedPrimProc{proc, ..}| {
-        all_chn_names_proc(&prime_proc_to_process(&proc))
+        all_chn_names_proc(&proc.clone().to_process())
     }).flatten().collect()
 }
 
