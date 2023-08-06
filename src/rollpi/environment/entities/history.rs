@@ -159,6 +159,10 @@ impl HistoryParticipant
         }
     }
 
+    fn run_dissapear_cycle(self: &Self)
+    {
+        // 
+    }
 
 }
 
@@ -169,6 +173,7 @@ impl Runnable for HistoryParticipant
         loop {
             self.run_tag_cycle();
             self.run_rollback_cycle();
+            self.run_dissapear_cycle();
         }
     }
 }

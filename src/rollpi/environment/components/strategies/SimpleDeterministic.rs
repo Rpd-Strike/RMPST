@@ -6,8 +6,12 @@ use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf
 pub enum ActionContext<'a>
 {
     End,
+    // Represents the prime process which reverts to the given TagKey   
     RollK(&'a TagKey),
+    // Represents the prime process - Send on channel ChName, payload Process, and the whole process with given ProcTag 
     Send(&'a ChName, &'a Process, &'a ProcTag),
+    // Represents the prime process - tagged with tag - 
+    //    Receive on channel ChName, PVar and TVar replaced in the Process with what comes from PartyComm 
     RecvCont(PartyComm, ChName, &'a ProcVar, &'a TagVar, &'a Process, ProcTag),
 }
 
@@ -64,9 +68,10 @@ impl ActionInterpreter for SimpleDetermStrat
                     Ok(rec_tag_key) => {
                         assert_eq!(rec_tag_key, new_tag);
                         
-                        let new_proc = reductions::perform_alpha_conv_proc(next_proc, p_var.clone(), in_data.process, t_var.clone());
-                        
-                        reductions::transform_to_prime_state(new_proc, new_tag)
+                        next_proc.clone()
+                            .alpha_conversion_on_trigger(p_var.clone(), &in_data.process, t_var.clone(), &new_tag)
+                            .to_tagged_process(ProcTag::PTKey(new_tag))
+                            .to_prime_state()
                     }
                 }
             },

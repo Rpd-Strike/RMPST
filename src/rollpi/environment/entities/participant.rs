@@ -258,10 +258,14 @@ impl Participant
         });
     }
 
-    fn ressurect_logic(self: &Self)
+    fn ressurect_logic(self: &mut Self)
     {
-        // TODO: !!!
-        // todo!();
+        let (state, ctx) = (&mut self.state, &self.party_context);
+        let ress_ch = &ctx.get_comm_ctx().ressurect_ctx.ress_recv_channel;
+
+        while let Ok(msg) = ress_ch.try_recv() {
+            
+        }
     }
 
     fn borrow_data(&mut self) -> (&mut PartyContext, &mut ParticipantState, &dyn Strategy)
