@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crossbeam::channel::{Receiver, Sender};
 
-use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, Process, TaggedProc}};
+use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, TaggedProc, Process}};
 
 use super::participant::Runnable;
 
@@ -19,6 +19,9 @@ pub struct HistoryParticipant
 
     // links created by joining communication
     join_links: HashMap<ProcTag, ProcTag>,
+    // same as join_links but in reverse for sending ressurect messages
+    // For each ProcTag, keep the (sender, receiver) pair of tagged processes
+    rev_join_links: HashMap<ProcTag, (TaggedProc, TaggedProc)>,
     // links created by branching in parallel some process
     branch_links: HashMap<ProcTag, Vec<ProcTag>>,
 
@@ -64,8 +67,8 @@ impl HistoryContext
 
 pub struct RessurectMsg
 {
-    pub descendant_tag: ProcTag,
-    pub tagged_proc: TaggedProc,
+    pub dissapeared_tag: ProcTag,
+    pub ress_tagged_proc: TaggedProc,
 }
 
 impl HistoryParticipant
@@ -76,6 +79,7 @@ impl HistoryParticipant
             ctx: h_ctx,
             tag_owner: HashMap::new(),
             join_links: HashMap::new(),
+            rev_join_links: HashMap::new(),
             branch_links: HashMap::new(),
             frozen_tags: HashSet::new(),
         }
@@ -83,8 +87,9 @@ impl HistoryParticipant
 
     fn _generate_links(br_links: &mut HashMap<ProcTag, Vec<ProcTag>>, 
                        join_links: &mut HashMap<ProcTag, ProcTag>,  
-                       send_t: &ProcTag, 
-                       recv_t: &ProcTag, 
+                       rev_join_links: &mut HashMap<ProcTag, (TaggedProc, TaggedProc)>,
+                       sender: TaggedProc,
+                       receiver: TaggedProc, 
                        new_t: &ProcTag)
     {
         let mut update_branch_links = |child_t: &ProcTag| {
@@ -100,34 +105,39 @@ impl HistoryParticipant
             }    
         };
 
-        update_branch_links(send_t);
-        update_branch_links(recv_t);
+        update_branch_links(&sender.tag);
+        update_branch_links(&receiver.tag);
         
         // Update join links data structure
-        join_links.insert(recv_t.clone(), new_t.clone());
-        join_links.insert(send_t.clone(), new_t.clone());
+        join_links.insert(receiver.tag.clone(), new_t.clone());
+        join_links.insert(sender.tag.clone(), new_t.clone());
+
+        // Update reverse join links data structure
+        rev_join_links.insert(new_t.clone(), (sender, receiver));
     }
 
     // Tries to get a tag message from all the participants and process/respond
     fn run_tag_cycle(self: &mut Self)
     {
-        let (hctx, br_links, join_links) = (&self.ctx, &mut self.branch_links, &mut self.join_links);
+        let (hctx, br_links, join_links, rev_join_links) = (&self.ctx, &mut self.branch_links, &mut self.join_links, &mut self.rev_join_links);
         // Poll for receiving tagging messages
         for (_name, recv) in &hctx.hist_tag_recv {
             while let Ok(MemoryPiece{
                 ids: (id_send, id_recv), 
-                sender: (sender_tag, _), 
-                receiver: (recv_tag, _), 
-                new_mem_tag}) = recv.try_recv() 
+                sender,
+                receiver, 
+                new_mem_tag, ..}) = recv.try_recv() 
             {
-                // Update tag owner data structure
                 let new_tag = ProcTag::PTKey(new_mem_tag.clone());
+                
+                // Update tag owner data structure
                 self.tag_owner.insert(new_tag.clone(), id_recv.clone());
-                self.tag_owner.insert(sender_tag.clone(), id_send.clone());
-                self.tag_owner.insert(recv_tag.clone(), id_recv.clone());
+                self.tag_owner.insert(sender.tag.clone(), id_send.clone());
+                self.tag_owner.insert(receiver.tag.clone(), id_recv.clone());
 
                 // update causal dependency links
-                HistoryParticipant::_generate_links(br_links, join_links, &sender_tag, &recv_tag, &ProcTag::PTKey(new_mem_tag.clone())); 
+                HistoryParticipant::_generate_links(br_links, join_links, rev_join_links, 
+                    sender, receiver, &ProcTag::PTKey(new_mem_tag.clone()),); 
                 
                 if let Some(x) = hctx.hist_not_send.get(&id_recv) {
                     // TODO: ? Check what to do in case of crash
@@ -137,8 +147,7 @@ impl HistoryParticipant
         }
     }
 
-    // TODO: Make DFS run through join links & branch links
-    fn _send_freeze_sgn_dfs(ctx: &HistoryContext, frozen_tags: &mut HashSet<ProcTag>, tag_owner: &HashMap<ProcTag, String>, p: &ProcTag) 
+    fn _send_freeze_sgn_dfs(join_links: &HashMap<ProcTag, ProcTag>, branch_links: &HashMap<ProcTag, Vec<ProcTag>>, ctx: &HistoryContext, frozen_tags: &mut HashSet<ProcTag>, tag_owner: &HashMap<ProcTag, String>, p: &ProcTag) 
     {
         if frozen_tags.contains(p) {
             return ();
@@ -151,25 +160,70 @@ impl HistoryParticipant
         let _ = signal_ch.send(p.clone());
 
         frozen_tags.insert(p.clone());
+
+        // Try to go through join links
+        if let Some(next_p) = join_links.get(p) {
+            HistoryParticipant::_send_freeze_sgn_dfs(join_links, branch_links, ctx, frozen_tags, tag_owner, next_p);
+        }
+
+        // Try to go through branch links
+        if let Some(next_ps) = branch_links.get(p) {
+            for next_p in next_ps {
+                HistoryParticipant::_send_freeze_sgn_dfs(join_links, branch_links, ctx, frozen_tags, tag_owner, next_p);
+            }
+        }
     }
 
     // TODO: Make DFS run through join links & branch links
     // Receives a rollback request from a participant and sends a freeze signal to all relevant participants
     fn run_rollback_cycle(self: &mut Self)
     {
-        let (frozen_tags, tag_owner, ctx) = (&mut self.frozen_tags, &self.tag_owner, &self.ctx);
+        let (join_links, 
+             branch_links, 
+             frozen_tags, 
+             tag_owner, 
+             ctx) = (&self.join_links, &self.branch_links, &mut self.frozen_tags, &self.tag_owner, &self.ctx);
+        
         for (_name, recv) in &ctx.roll_tag_recv {
             while let Ok(proc_tag) = recv.try_recv() {
-                HistoryParticipant::_send_freeze_sgn_dfs(ctx, frozen_tags, tag_owner, &proc_tag);
+                HistoryParticipant::_send_freeze_sgn_dfs(join_links, branch_links, ctx, frozen_tags, tag_owner, &proc_tag);
             }
         }
     }
 
-    // TODO: Get the sender and sender info with id, and send to correct 2 targets, the msgs to be recreated
-    fn run_dissapear_cycle(self: &Self)
+    // TODO: Check data structures are correctly updated
+    fn run_dissapear_cycle(self: &mut Self)
     {
-        while let Ok(tag) = self.ctx.diss_tag_recv.try_recv() {
-            // Find the owner of the send and receive branch of process produced out of the given Tag
+        while let Ok(diss_tag) = self.ctx.diss_tag_recv.try_recv() {
+            match self.rev_join_links.remove(&diss_tag)
+            {
+                Some((sender, receiver)) => {
+                    // Check that the sender is of enum variant Send
+                    assert!(matches!(sender.proc, Process::Send(..)));
+                    assert!(matches!(receiver.proc, Process::Recv(..)));
+
+                    let sender_id = self.tag_owner.get(&sender.tag).unwrap();
+                    let receiver_id = self.tag_owner.get(&receiver.tag).unwrap();
+
+                    let sender_ch = self.ctx.ress_tag_send.get(sender_id).unwrap();
+                    let receiver_ch = self.ctx.ress_tag_send.get(receiver_id).unwrap();
+
+                    // TODO: ? Check if can ignore the result
+                    let _ = sender_ch.send(RessurectMsg {
+                        dissapeared_tag: diss_tag.clone(),
+                        ress_tagged_proc: receiver.clone(),
+                    });
+
+                    // TODO: ? Check if can ignore the result
+                    let _ = receiver_ch.send(RessurectMsg {
+                        dissapeared_tag: diss_tag.clone(),
+                        ress_tagged_proc: sender.clone(),
+                    });
+                },
+                None => {
+                    println!("Received a dissapear tag that no longer is in the history's records")
+                },
+            }
             
         } 
     }
@@ -182,7 +236,9 @@ impl Runnable for HistoryParticipant
     {
         loop {
             self.run_tag_cycle();
+
             self.run_rollback_cycle();
+            
             self.run_dissapear_cycle();
         }
     }

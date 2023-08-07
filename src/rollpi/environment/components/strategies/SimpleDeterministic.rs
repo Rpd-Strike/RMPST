@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::ActionInterpreter}, entities::participant::PartyContext, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}, reductions};
+use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::ActionInterpreter}, entities::participant::PartyContext, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}};
 
 #[derive(Debug)]
 pub enum ActionContext<'a>
@@ -50,12 +50,16 @@ impl ActionInterpreter for SimpleDetermStrat
                 let new_tag = ctx.get_tag_ctx().create_new_tag();
 
                 let send_ch = &ctx.get_comm_ctx().history_ctx.hist_tag_channel;
-                let rez = send_ch.send(MemoryPiece {
-                    ids: (in_data.sender_id, ctx.get_id().clone()),
-                    sender: (in_data.tag, (ch_name.clone(), in_data.process.clone())),
-                    receiver: (recv_tag, (ch_name, p_var.clone(), t_var.clone(), next_proc.clone())),
-                    new_mem_tag: new_tag.clone(),
-                });
+                let rez = send_ch.send(MemoryPiece::new(
+                    (in_data.sender_id, ctx.get_id().clone()),
+                    (   in_data.tag,
+                        (ch_name.clone(), in_data.process.clone())
+                    ),
+                    (   recv_tag,
+                        (ch_name.clone(), p_var.clone(), t_var.clone(), next_proc.clone())
+                    ),
+                    new_tag.clone(),
+                ));
 
                 if let Err(e) = &rez {
                     println!("Error sending history tag: {:?}", e.to_string());

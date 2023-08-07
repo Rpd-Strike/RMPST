@@ -37,6 +37,7 @@ pub enum Process
     RollK(TagKey),
 }
 
+#[derive(Debug, Clone)]
 pub struct TaggedProc
 {
     pub tag: ProcTag,

@@ -86,6 +86,7 @@ pub struct RollbackContext
 
 pub struct DissapearContext
 {
+    // TODO: This is not an arbitrary ProcTag, but rather a TagKey
     pub diss_send_channel: Sender<ProcTag>,
 }
 
@@ -263,9 +264,9 @@ impl Participant
         let (state, ctx) = (&mut self.state, &self.party_context);
         let ress_ch = &ctx.get_comm_ctx().ressurect_ctx.ress_recv_channel;
 
-        while let Ok(RessurectMsg { descendant_tag: _, tagged_proc }) = ress_ch.try_recv() {
-            state.frozen_tags.remove(&tagged_proc.tag);
-            state.pr_state.append(&mut tagged_proc.to_prime_state());
+        while let Ok(RessurectMsg { dissapeared_tag: _, ress_tagged_proc }) = ress_ch.try_recv() {
+            state.frozen_tags.remove(&ress_tagged_proc.tag);
+            state.pr_state.append(&mut ress_tagged_proc.to_prime_state());
         }
     }
 
