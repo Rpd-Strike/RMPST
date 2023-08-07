@@ -25,11 +25,11 @@ pub struct Participant
     party_context: PartyContext,
 }
 
-struct ParticipantState
+pub struct ParticipantState
 {
-    pr_state: PrimeState,
+    pub pr_state: PrimeState,
 
-    frozen_tags: HashSet<ProcTag>,
+    pub frozen_tags: HashSet<ProcTag>,
 }
 
 pub struct PartyContext
@@ -172,7 +172,7 @@ impl Participant
     fn evolve_state(&mut self)
     {
         let (ctx, state, strat) = self.borrow_data();
-        let action = strat.run_strategy(ctx, &state.pr_state);
+        let action = strat.run_strategy(ctx, &state);
         let pr_state = &mut state.pr_state;
 
         // Remove the ran process, append the new processes

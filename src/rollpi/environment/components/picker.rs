@@ -1,4 +1,4 @@
-use crate::rollpi::{syntax::PrimeState, environment::entities::participant::PartyContext};
+use crate::rollpi::{syntax::PrimeState, environment::entities::participant::{PartyContext, ParticipantState}};
 
 use super::strategies::SimpleDeterministic::SimpleDetermStrat;
 
@@ -8,7 +8,7 @@ pub struct PrimProcTransf(pub usize, pub PrimeState);
 //   to take from one of its primitive processes
 pub trait Strategy : Send
 {
-    fn run_strategy<'a>(&'a self, pctx: &mut PartyContext, state: &'a PrimeState) -> Option<PrimProcTransf>;
+    fn run_strategy<'a>(&'a self, pctx: &mut PartyContext, state: &'a ParticipantState) -> Option<PrimProcTransf>;
 }
 
 impl Default for Box<dyn Strategy>

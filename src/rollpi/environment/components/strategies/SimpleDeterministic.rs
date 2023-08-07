@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::ActionInterpreter}, entities::participant::PartyContext, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}};
+use crate::rollpi::{environment::{components::{picker::{Strategy, PrimProcTransf}, actions::ActionInterpreter}, entities::participant::{PartyContext, ParticipantState}, types::{PartyComm, MemoryPiece}}, syntax::{PrimeState, PrimProcess, TaggedPrimProc, ProcVar, TagVar, Process, TagKey, ChName, ProcTag}};
 
 #[derive(Debug)]
 pub enum ActionContext<'a>
@@ -73,7 +73,7 @@ impl ActionInterpreter for SimpleDetermStrat
                         assert_eq!(rec_tag_key, new_tag);
                         
                         next_proc.clone()
-                            .alpha_conversion_on_trigger(p_var.clone(), &in_data.process, t_var.clone(), &new_tag)
+                            .substitution_on_trigger(p_var.clone(), &in_data.process, t_var.clone(), &new_tag)
                             .to_tagged_process(ProcTag::PTKey(new_tag))
                             .to_prime_state()
                     }
@@ -90,9 +90,18 @@ impl ActionInterpreter for SimpleDetermStrat
 
 impl Strategy for SimpleDetermStrat
 {
-    fn run_strategy<'a>(&self, pctx: &mut PartyContext, state: &'a PrimeState) -> Option<PrimProcTransf>
+    fn run_strategy<'a>(&self, pctx: &mut PartyContext, state: &'a ParticipantState) -> Option<PrimProcTransf>
     {
-        let pos = state.iter().enumerate().find_map(|(i, x)| match x {
+        let ParticipantState { pr_state, frozen_tags } = state;
+
+        let non_frozen_states = || {
+            pr_state
+                .iter()
+                .enumerate()
+                .filter(|(_, x)| !frozen_tags.contains(&x.tag))
+        };
+
+        let pos = non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {
                 println!("Chose send process {:?} with tag {:?} to channel {:?}", send_proc, tag, ch_name);
                 Some((i, ActionContext::Send(ch_name, send_proc, tag)))
@@ -100,7 +109,7 @@ impl Strategy for SimpleDetermStrat
             _ => None,
         });
 
-        let pos = pos.or_else(|| state.iter().enumerate().find_map(|(i, x)| match x {
+        let pos = pos.or_else(|| non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::RollK(tag_key), .. } => {
                 println!("Chose rollk process with tag {:?}", tag_key);
                 Some((i, ActionContext::RollK(tag_key)))
@@ -109,7 +118,7 @@ impl Strategy for SimpleDetermStrat
         }));
 
         let pos = pos.or_else(|| {
-            state.iter().enumerate().find_map(|(i, x)| {
+            non_frozen_states().find_map(|(i, x)| {
                 match x {
                     TaggedPrimProc { proc: PrimProcess::Recv(ch_name, p_var, t_var, next_proc), tag } => {
                         // println!("Trying to receive from channel {:?}", ch_name);
@@ -125,7 +134,7 @@ impl Strategy for SimpleDetermStrat
         });
                         
         let pos = pos.or_else(|| {
-            state.iter().enumerate().find_map(|(i, x)| match x {
+            non_frozen_states().find_map(|(i, x)| match x {
                 TaggedPrimProc{ proc: PrimProcess::End, .. } => {
                     println!("Chose end process");
                     Some((i, ActionContext::End))
