@@ -31,6 +31,7 @@ fn main() {
     let parties = vec![
         "A".to_string(),
         "B".to_string(),
+        // "C".to_string(),
     ];
 
     let processes = vec![
@@ -42,12 +43,14 @@ fn main() {
         Process::Recv(ch_a.clone(), ProcVar("pv".to_string()), TagVar("tv".to_string()), 
             Box::new(Process::PVar(ProcVar("pv".to_string()))),
         ),
+
+        // Process::RollK(TagKey("roll_kk".to_string())),
     ];
 
     assert_eq!(parties.len(), processes.len());
     
-    if check_all_list(&processes) == false {
-        println!("The processes do not respect the checks! (pvar, tvar uniques and closed)")
+    if check_initial_conf_list(&processes) == false {
+        println!("The processes do not respect the checks! (pvar, tvar uniques and closed and rolls bounded)")
     } else {
         let orig_proc_parties = parties.into_iter().zip(processes.into_iter()).collect();
         run_processes_as_parties(orig_proc_parties)

@@ -220,7 +220,7 @@ fn _rec_check_tvar_closed(proc: &Process, env: &mut HashSet<TagVar>) -> bool
         },
         Process::RollV(tag_var) => 
             env.contains(tag_var),
-        Process::RollK(_) => true,
+        Process::RollK(_) => false,
     }
 }
 
@@ -254,12 +254,12 @@ fn _rec_check_unique_pvar_tvar(proc: &Process, p_env: &mut HashSet<ProcVar>, t_e
     }
 }
 
-pub fn check_all_list(procs: &Vec<Process>) -> bool
+pub fn check_initial_conf_list(procs: &Vec<Process>) -> bool
 {
-    procs.iter().all(|proc| check_all(proc))
+    procs.iter().all(|proc| check_initial_conf(proc))
 }
 
-pub fn check_all(proc: &Process) -> bool
+pub fn check_initial_conf(proc: &Process) -> bool
 {
     check_all_pvar_closed(proc) && check_all_tvar_closed(proc) && check_unique_pvar_tvar(proc)
 }
