@@ -1,7 +1,7 @@
 use core::panic;
 use std::collections::HashSet;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChName(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -25,7 +25,7 @@ pub enum ProcTag
 }
 
 // Our convention is that a process does not have free variables either for channels or process variables
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Process
 {
     End,
@@ -83,6 +83,18 @@ impl Process
     pub fn to_tagged_process(self: Self, arg_tag: ProcTag) -> TaggedProc
     {
         TaggedProc { tag: arg_tag, proc: self }
+    }
+
+    pub fn parallel_compose(mut procs: Vec<Process>) -> Process
+    {
+        let first_proc = procs.pop();
+        let procs = first_proc.map(|first_p| {
+            procs.into_iter().rfold(first_p, |acc, p| {
+                Process::Par(Box::new(p), Box::new(acc))
+            })
+        });
+        
+        procs.unwrap_or(Process::End)
     }
 
     fn get_first_order_par_processes(self: Self) -> Vec<Process>

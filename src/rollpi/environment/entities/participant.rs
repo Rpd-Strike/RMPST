@@ -20,9 +20,9 @@ pub struct Participant
 {
     state: ParticipantState,
     
-    strategy: Box<dyn Strategy>,
-
     party_context: PartyContext,
+    
+    strategy: Box<dyn Strategy>,
 }
 
 pub struct ParticipantState
@@ -171,17 +171,20 @@ impl Participant
 
     fn evolve_state(&mut self)
     {
-        let (ctx, state, strat) = self.borrow_data();
-        let action = strat.run_strategy(ctx, &state);
+        let (ctx, state, strat) = (&mut self.party_context, &mut self.state, &*self.strategy);
+        let action = strat.run_strategy(ctx, state);
         let pr_state = &mut state.pr_state;
 
         // Remove the ran process, append the new processes
-        if let Some(PrimProcTransf(pos, proc)) = action {
-            pr_state.swap_remove(pos);
-            pr_state.extend(proc.into_iter());
-        } else {
-            println!("I am done .... {}", ctx.get_id());
-            std::thread::sleep(time::Duration::from_secs(1));
+        match action {
+            Some(PrimProcTransf(pos, proc)) => {
+                pr_state.swap_remove(pos);
+                pr_state.extend(proc.into_iter());
+            },
+            None => {
+                println!("I am done .... {}", ctx.get_id());
+                std::thread::sleep(time::Duration::from_secs(1));
+            }
         }
     }   
 
@@ -251,6 +254,15 @@ impl Participant
             }
         });
 
+        // Eliminate from the frozen processes set
+        frozen_tags.retain(|tag| {
+            if let ProcTag::PTSplit(_fr_key, _total_cnt, orig_key) = tag {
+                !key_fragments.contains_key(orig_key)
+            } else {
+                true
+            }
+        });
+
         // Send the dissapear notifications
         key_fragments.keys().for_each(|k| {
             let diss_ch = &ctx.get_comm_ctx().dissapear_ctx.diss_send_channel;
@@ -268,11 +280,6 @@ impl Participant
             state.frozen_tags.remove(&ress_tagged_proc.tag);
             state.pr_state.append(&mut ress_tagged_proc.to_prime_state());
         }
-    }
-
-    fn borrow_data(&mut self) -> (&mut PartyContext, &mut ParticipantState, &dyn Strategy)
-    {
-        (&mut self.party_context, &mut self.state, &*self.strategy)
     }
 
 }
