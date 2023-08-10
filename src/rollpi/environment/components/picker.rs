@@ -1,6 +1,6 @@
 use crate::rollpi::{syntax::PrimeState, environment::entities::participant::{PartyContext, ParticipantState}};
 
-use super::strategies::SimpleDeterministic::SimpleDetermStrat;
+use super::strategies::{SimpleDeterministic::SimpleDetermStrat, SimpleOrder::SimpleOrderStrat};
 
 pub struct PrimProcTransf(pub usize, pub PrimeState);
 
@@ -15,6 +15,6 @@ impl Default for Box<dyn Strategy>
 {
     fn default() -> Self
     {
-        Box::new(SimpleDetermStrat::default())
+        Box::new(SimpleOrderStrat::default())
     }
 }

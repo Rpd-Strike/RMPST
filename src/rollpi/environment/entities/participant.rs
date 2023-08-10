@@ -178,7 +178,7 @@ impl Participant
         // Remove the ran process, append the new processes
         match action {
             Some(PrimProcTransf(pos, proc)) => {
-                pr_state.swap_remove(pos);
+                pr_state.remove(pos);
                 pr_state.extend(proc.into_iter());
             },
             None => {

@@ -1,4 +1,6 @@
-use pi_calculus::rollpi::{syntax::*, environment::{generator, runner::{self, RunningContext}}};
+use std::vec;
+
+use pi_calculus::rollpi::{syntax::*, environment::{generator, runner::{self, RunningContext}}, local_types::{PartLocalType, LocalType}};
 
 fn run_processes_as_parties(procs: Vec<(String, Process)>) 
 {
@@ -21,7 +23,7 @@ fn run_processes_as_parties(procs: Vec<(String, Process)>)
 }
 
 // TODO: Create a module to transform from local types to processes and names
-fn main() {
+fn test_roll_pi() {
     let ch_a = ChName("a".to_string());
     // using this should give an error
     let _cont_1 = Process::PVar(ProcVar("p".to_string()));
@@ -57,4 +59,51 @@ fn main() {
     }
 
     // This shouldn't pass the test
+}
+
+fn test_local_types()
+{
+    let party_a = PartLocalType::new("A".to_string(), 
+        LocalType::RAbs("t".to_string(), Box::new(
+            LocalType::Send("B".to_string(), vec![
+                ("lb_1".to_string(), LocalType::Recv("B".to_string(), 
+                                        vec![("lb_3".to_string(), LocalType::RVar("t".to_string()))])),
+                ("lb_2".to_string(), LocalType::End),
+            ])
+        ))
+    );
+
+    let party_b = PartLocalType::new("B".to_string(), 
+        LocalType::RAbs("t".to_string(), Box::new(
+            LocalType::Recv("A".to_string(), vec![
+                ("lb_1".to_string(), LocalType::Send("A".to_string(), 
+                                        vec![("lb_3".to_string(), LocalType::RVar("t".to_string()))])),
+                ("lb_2".to_string(), LocalType::End),
+            ])
+        ))
+    );
+
+    let party_localtypes = vec![
+        party_a,
+        party_b,
+    ];
+
+    println!("Party A: {:?}", party_localtypes.get(0));
+
+    let party_names: Vec<_> = party_localtypes.iter().map(|p| p.get_name()).collect();
+    let party_procs: Vec<_> = party_localtypes.into_iter().map(|p| p.to_process()).collect();
+
+    println!("Party A: {:?}", party_procs.get(0));
+
+    if check_initial_conf_list(&party_procs) == false {
+        println!("The processes do not respect the checks! (pvar, tvar uniques and closed and rolls bounded)")
+    } else {
+        let orig_proc_parties = party_names.into_iter().zip(party_procs.into_iter()).collect();
+        run_processes_as_parties(orig_proc_parties)
+    }
+}
+
+fn main() 
+{
+    test_local_types();
 }

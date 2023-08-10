@@ -2,3 +2,4 @@
 
 pub mod SimpleDeterministic;
 pub mod SimpleRandom;
+pub mod SimpleOrder;
