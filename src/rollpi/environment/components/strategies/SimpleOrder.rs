@@ -1,4 +1,4 @@
-use crate::rollpi::{environment::{components::{actions::ActionInterpreter, picker::{Strategy, PrimProcTransf}}, entities::participant::{PartyContext, ParticipantState}}, syntax::{TaggedPrimProc, PrimProcess, ChName, PrimeState}};
+use crate::rollpi::{environment::{components::{actions::ActionInterpreter, picker::{Strategy, PrimProcTransf}}, entities::participant::{PartyContext, ParticipantState}}, syntax::{TaggedPrimProc, PrimProcess, ChName, PrimeState}, logger::FileLog::FileLogger};
 
 use super::SimpleDeterministic::ActionContext;
 
@@ -37,11 +37,12 @@ impl Strategy for SimpleOrderStrat
                 PrimProcess::Recv(ChName(ch_name), _, _, _) => format!("Recv {}", ch_name),
             };
 
-            print!(" | {}", tip);
+            pctx.get_logger().log(format!(" | {}", tip));
         });
-        println!(" || Part: {}", pctx.get_id());
 
-        check_for_non_rec_comm(&state.pr_state, pctx.get_id());
+        pctx.get_logger().log(format!(" |  ||| \n"));
+
+        check_for_non_rec_comm(&state.pr_state, pctx.get_id().clone(), pctx.get_logger());
         
         let pos = None;
 
@@ -55,7 +56,10 @@ impl Strategy for SimpleOrderStrat
         })});  
 
 
-        // Try recv processes
+        // Try recv processes - order: first comm_* -> rec_norm_* -> rec_comb_*
+        
+
+
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc { proc: PrimProcess::Recv(ch_name, p_var, t_var, next_proc), tag } => {
                 // println!("Trying to receive from channel {:?}", ch_name);
@@ -95,6 +99,7 @@ impl Strategy for SimpleOrderStrat
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {
                 if ch_name.0.starts_with("rec_norm") {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
                     Some((i, ActionContext::Send(ch_name, send_proc, tag)))
                 }
                 else {
@@ -107,18 +112,12 @@ impl Strategy for SimpleOrderStrat
         // Try sends -- The rest
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {
+                std::thread::sleep(std::time::Duration::from_secs(2));
                 Some((i, ActionContext::Send(ch_name, send_proc, tag)))
             },
             _ => None,
         })});
         
-                      
-
-        // if let Some((i, ac)) = &pos {
-            // println!("Pos to eliminate: {}", i);
-            // println!("Content: {:?}", ac);
-        // }
-
         pos.map(|(el_pos, ac)| {
             PrimProcTransf(el_pos, 
                            self.interpreter.interpret_action(pctx, ac))
@@ -126,7 +125,7 @@ impl Strategy for SimpleOrderStrat
     }
 }
 
-fn check_for_non_rec_comm(state: &PrimeState, id: &String)
+fn check_for_non_rec_comm(state: &PrimeState, id: String, logger: &mut FileLogger)
 {
     let mut is_non_rec = false;
 
@@ -147,6 +146,6 @@ fn check_for_non_rec_comm(state: &PrimeState, id: &String)
     }
 
     if !is_non_rec {
-        println!("I am basically done  --- {}", id);
+        logger.log(format!("I am basically done  --- {} \n", id));
     }
 }

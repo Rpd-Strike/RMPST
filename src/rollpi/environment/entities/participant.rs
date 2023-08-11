@@ -1,6 +1,6 @@
 use core::time;
 use std::collections::{HashMap, HashSet};
-use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState, ProcTag, TaggedPrimProc}};
+use crate::rollpi::{environment::{components::picker::{Strategy, PrimProcTransf}, types::{MemoryPiece, PartyComm}}, syntax::{TagKey, PrimeState, ProcTag, TaggedPrimProc}, logger::FileLog::{self, FileLogger}};
 
 
 pub trait Runnable : Send
@@ -37,6 +37,7 @@ pub struct PartyContext
     id: String,
     comm_ctx: PartyCommCtx,
     tag_ctx: TagCreator,
+    logger: FileLogger,
 }
 
 impl PartyContext
@@ -54,6 +55,11 @@ impl PartyContext
     pub fn get_tag_ctx(&mut self) -> &mut TagCreator
     {
         &mut self.tag_ctx
+    }
+
+    pub fn get_logger(&mut self) -> &mut FileLogger
+    {
+        &mut self.logger
     }
 }
 
@@ -162,9 +168,10 @@ impl Participant
             },
             strategy,
             party_context: PartyContext {
-                id,
+                id: id.clone(),
                 comm_ctx: comm_context,
                 tag_ctx: TagCreator::default(),
+                logger: FileLogger::new(format!("logs/{}.log", id)),
             },
         }
     }

@@ -3,3 +3,4 @@ pub mod syntax;
 pub mod environment;
 pub mod examples;
 pub mod local_types;
+pub mod logger;
