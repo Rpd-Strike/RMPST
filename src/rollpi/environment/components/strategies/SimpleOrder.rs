@@ -55,11 +55,7 @@ impl Strategy for SimpleOrderStrat
             _ => None,
         })});  
 
-
         // Try recv processes - order: first comm_* -> rec_norm_* -> rec_comb_*
-        
-
-
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc { proc: PrimProcess::Recv(ch_name, p_var, t_var, next_proc), tag } => {
                 // println!("Trying to receive from channel {:?}", ch_name);
@@ -81,7 +77,6 @@ impl Strategy for SimpleOrderStrat
             _ => None,
         }));
 
-        // TODO: Make smarter ordering
         // Try sends -- Channel communication
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {

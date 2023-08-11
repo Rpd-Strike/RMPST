@@ -66,9 +66,9 @@ fn test_local_types()
     let party_a = PartLocalType::new("A".to_string(), 
         LocalType::RAbs("t".to_string(), Box::new(
             LocalType::Send("B".to_string(), vec![
+                ("lb_2".to_string(), LocalType::End),
                 ("lb_1".to_string(), LocalType::Recv("B".to_string(), 
                                         vec![("lb_3".to_string(), LocalType::RVar("t".to_string()))])),
-                ("lb_2".to_string(), LocalType::End),
             ])
         ))
     );
@@ -76,9 +76,9 @@ fn test_local_types()
     let party_b = PartLocalType::new("B".to_string(), 
         LocalType::RAbs("t".to_string(), Box::new(
             LocalType::Recv("A".to_string(), vec![
+                ("lb_2".to_string(), LocalType::End),
                 ("lb_1".to_string(), LocalType::Send("A".to_string(), 
                                         vec![("lb_3".to_string(), LocalType::RVar("t".to_string()))])),
-                ("lb_2".to_string(), LocalType::End),
             ])
         ))
     );

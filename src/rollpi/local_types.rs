@@ -78,9 +78,6 @@ impl PartLocalType
                     let recv_cont = Process::Send(ord_ch.clone(), Box::new(Process::Par(
                         Box::new(lt_enc.to_process()),
                         Box::new(Process::Send(opt_ch.clone(), Box::new(Process::PVar(x_var.clone())))),
-
-                        // Box::new(Process::PVar(x_var.clone())),
-                        // Box::new(Process::Send(opt_ch.clone(), Box::new(lt_enc.to_process())))
                     )));
                     
                     Process::Recv(snd_ch.clone(), x_var.clone(), TagVar("_u_".to_string()), Box::new(recv_cont))
