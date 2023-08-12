@@ -28,7 +28,7 @@ impl Process
                 let conv_p = p.__rec_subst(p_var, in_process, ok_proc, t_var, new_tag, ok_tag);
                 Process::Send(ch_name, Box::new(conv_p))
             },
-            // !! This works because Tvars and Pvars are unique
+            
             Process::Recv(_ch_name, new_p_var, new_t_var, new_next_proc) => {
                 if new_p_var == p_var {
                     ok_proc = false;

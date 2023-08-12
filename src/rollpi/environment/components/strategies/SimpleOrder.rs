@@ -122,25 +122,27 @@ impl Strategy for SimpleOrderStrat
 
 fn check_for_non_rec_comm(state: &PrimeState, id: String, logger: &mut FileLogger)
 {
-    let mut is_non_rec = false;
+    let mut has_non_rec_gen = false;
 
     for TaggedPrimProc { tag, proc } in state {
         match proc {
             PrimProcess::Send(ChName(ch_name), _) => {
                 if !ch_name.starts_with("rec") {
-                    is_non_rec = true;
+                    has_non_rec_gen = true;
                 }
             },
             PrimProcess::Recv(ChName(ch_name), _, _, _) => {
                 if !ch_name.starts_with("rec") {
-                    is_non_rec = true;
+                    has_non_rec_gen = true;
+                } else if !ch_name.starts_with("rec_norm") {
+                    has_non_rec_gen = true;
                 }
             },            
             _ => (),
         }
     }
 
-    if !is_non_rec {
+    if !has_non_rec_gen {
         logger.log(format!("I am basically done  --- {} \n", id));
     }
 }

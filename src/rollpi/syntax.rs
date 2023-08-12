@@ -273,8 +273,8 @@ pub fn check_initial_conf_list(procs: &Vec<Process>) -> bool
 
 pub fn check_initial_conf(proc: &Process) -> bool
 {
-    // check_all_pvar_closed(proc) && 
-    // check_all_tvar_closed(proc) && 
+    check_all_pvar_closed(proc) && 
+    check_all_tvar_closed(proc) && 
     // check_unique_pvar_tvar(proc)
 
     return true
