@@ -71,3 +71,43 @@ pub fn basic_roll_pi_rollback() -> Vec<(String, Process)>
 
     parties.into_iter().zip(processes.into_iter()).collect()
 }
+
+pub fn complex_roll_pi_rollback() -> Vec<(String, Process)>
+{
+    let ch_a = ChName("a".to_string());
+    let ch_b = ChName("b".to_string());
+    let ch_c = ChName("c".to_string());
+
+    let y_var = ProcVar("y".to_string());
+    let z_var = ProcVar("z".to_string());
+
+    let u_tag = TagVar("u".to_string());
+    let g_tag = TagVar("g".to_string());
+    let roll_g = Process::RollV(g_tag.clone());
+
+    let party_a = Process::Send(ch_a.clone(), Box::new(Process::End));
+
+    let party_b = Process::Recv(ch_a.clone(), y_var.clone(), g_tag.clone(), Box::new(
+        Process::parallel_compose(vec![
+            Process::Send(ch_c.clone(), Box::new(Process::End)),
+
+            Process::Send(ch_b.clone(), Box::new(Process::End)),
+
+            Process::Recv(ch_b.clone(), y_var.clone(), u_tag.clone(), Box::new(
+                Process::Recv(ch_b.clone(), y_var.clone(), u_tag.clone(), Box::new(
+                    roll_g
+                ))
+            ))
+        ])
+    ));
+
+    let party_c = Process::Recv(ch_c.clone(), z_var, u_tag.clone(), Box::new(
+        Process::Send(ch_b.clone(), Box::new(Process::End))
+    ));
+
+    vec![
+        ("A".to_string(), party_a),
+        ("B".to_string(), party_b),
+        ("C".to_string(), party_c),
+    ]
+}
