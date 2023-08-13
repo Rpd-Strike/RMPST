@@ -1,6 +1,6 @@
 use crate::rollpi::{syntax::PrimeState, environment::entities::participant::{PartyContext, ParticipantState}};
 
-use super::strategies::{SimpleDeterministic::SimpleDetermStrat, SimpleOrder::SimpleOrderStrat};
+use super::strategies::SimpleOrder::SimpleOrderStrat;
 
 pub struct PrimProcTransf(pub usize, pub PrimeState);
 

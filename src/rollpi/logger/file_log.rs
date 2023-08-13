@@ -5,19 +5,17 @@ pub struct FileLogger
     file: File,
 }
 
-#[cfg(windows)]
-const LINE_ENDING: &str = "\r\n";
-#[cfg(not(windows))]
-const LINE_ENDING: &str = "\n";
+// #[cfg(windows)]
+// const LINE_ENDING: &str = "\r\n";
+// #[cfg(not(windows))]
+// const LINE_ENDING: &str = "\n";
 
 impl FileLogger
 {
-
-
-    pub fn new(file_name: String) -> Self
+    pub fn new(id: String) -> Self
     {
         FileLogger {
-            file: File::create(file_name).unwrap()
+            file: File::create(format!("logs/{}.log", id)).unwrap()
         }
     }
 

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crossbeam::channel::{Receiver, Sender};
 
-use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, TaggedProc, Process}};
+use crate::rollpi::{environment::types::MemoryPiece, syntax::{TagKey, ProcTag, TaggedProc, Process}, logger::file_log::FileLogger};
 
 use super::participant::Runnable;
 
@@ -45,6 +45,8 @@ pub struct HistoryContext
     pub diss_tag_recv: Receiver<ProcTag>,
 
     pub ress_tag_send: HashMap<String, Sender<RessurectMsg>>,
+
+    pub logger: FileLogger,
 }
 
 impl HistoryContext
@@ -61,10 +63,13 @@ impl HistoryContext
             diss_tag_recv: arg_diss_tag_recv,
 
             ress_tag_send: HashMap::default(),
+
+            logger: FileLogger::new("Hist".to_string()),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct RessurectMsg
 {
     pub dissapeared_tag: ProcTag,
@@ -130,6 +135,8 @@ impl HistoryParticipant
             {
                 let new_tag = ProcTag::PTKey(new_mem_tag.clone());
                 
+                // self.ctx.logger.log(format!(""))
+
                 // Update tag owner data structure
                 self.tag_owner.insert(new_tag.clone(), id_recv.clone());
                 self.tag_owner.insert(sender.tag.clone(), id_send.clone());
@@ -147,7 +154,13 @@ impl HistoryParticipant
         }
     }
 
-    fn _send_freeze_sgn_dfs(join_links: &HashMap<ProcTag, ProcTag>, branch_links: &HashMap<ProcTag, Vec<ProcTag>>, ctx: &HistoryContext, frozen_tags: &mut HashSet<ProcTag>, tag_owner: &HashMap<ProcTag, String>, p: &ProcTag) 
+    fn _send_freeze_sgn_dfs(logger: &mut FileLogger,
+                            join_links: &HashMap<ProcTag, ProcTag>, 
+                            branch_links: &HashMap<ProcTag, Vec<ProcTag>>, 
+                            roll_frz_send_map: &HashMap<String, Sender<ProcTag>>, 
+                            frozen_tags: &mut HashSet<ProcTag>, 
+                            tag_owner: &HashMap<ProcTag, String>, 
+                            p: &ProcTag) 
     {
         if frozen_tags.contains(p) {
             return ();
@@ -155,7 +168,10 @@ impl HistoryParticipant
 
         // TODO: Make a context to avoid unwrap
         let owner = tag_owner.get(p).unwrap();
-        let signal_ch = ctx.roll_frz_send.get(owner).unwrap();
+        let signal_ch = roll_frz_send_map.get(owner).unwrap();
+        
+
+        logger.log(format!("Sending freeze signal to {:?}\n", p));
         // TODO: ? Check what to do in case of crash
         let _ = signal_ch.send(p.clone());
 
@@ -163,13 +179,13 @@ impl HistoryParticipant
 
         // Try to go through join links
         if let Some(next_p) = join_links.get(p) {
-            HistoryParticipant::_send_freeze_sgn_dfs(join_links, branch_links, ctx, frozen_tags, tag_owner, next_p);
+            HistoryParticipant::_send_freeze_sgn_dfs(logger, join_links, branch_links, roll_frz_send_map, frozen_tags, tag_owner, next_p);
         }
 
         // Try to go through branch links
         if let Some(next_ps) = branch_links.get(p) {
             for next_p in next_ps {
-                HistoryParticipant::_send_freeze_sgn_dfs(join_links, branch_links, ctx, frozen_tags, tag_owner, next_p);
+                HistoryParticipant::_send_freeze_sgn_dfs(logger, join_links, branch_links, roll_frz_send_map, frozen_tags, tag_owner, next_p);
             }
         }
     }
@@ -182,11 +198,15 @@ impl HistoryParticipant
              branch_links, 
              frozen_tags, 
              tag_owner, 
-             ctx) = (&self.join_links, &self.branch_links, &mut self.frozen_tags, &self.tag_owner, &self.ctx);
+             ctx) = (&self.join_links, &self.branch_links, &mut self.frozen_tags, &self.tag_owner, &mut self.ctx);
+
+        let (roll_tag_recv, logger, roll_frz_send) = (&ctx.roll_tag_recv, &mut ctx.logger, &ctx.roll_frz_send);
         
-        for (_name, recv) in &ctx.roll_tag_recv {
+        for (_name, recv) in roll_tag_recv {
             while let Ok(proc_tag) = recv.try_recv() {
-                HistoryParticipant::_send_freeze_sgn_dfs(join_links, branch_links, ctx, frozen_tags, tag_owner, &proc_tag);
+                logger.log(format!("Start rollback on tag: {:?}\n", proc_tag));
+
+                HistoryParticipant::_send_freeze_sgn_dfs(logger, join_links, branch_links, roll_frz_send, frozen_tags, tag_owner, &proc_tag);
             }
         }
     }
@@ -208,17 +228,24 @@ impl HistoryParticipant
                     let sender_ch = self.ctx.ress_tag_send.get(sender_id).unwrap();
                     let receiver_ch = self.ctx.ress_tag_send.get(receiver_id).unwrap();
 
-                    // TODO: ? Check if can ignore the result
-                    let _ = sender_ch.send(RessurectMsg {
-                        dissapeared_tag: diss_tag.clone(),
-                        ress_tagged_proc: receiver.clone(),
-                    });
-
-                    // TODO: ? Check if can ignore the result
-                    let _ = receiver_ch.send(RessurectMsg {
+                    let sender_msg = RessurectMsg {
                         dissapeared_tag: diss_tag.clone(),
                         ress_tagged_proc: sender.clone(),
-                    });
+                    };
+
+                    let recver_msg = RessurectMsg {
+                        dissapeared_tag: diss_tag.clone(),
+                        ress_tagged_proc: receiver.clone(),
+                    };
+
+                    self.ctx.logger.log(format!("Sending ressurect message {:?}\n", sender_msg));
+                    self.ctx.logger.log(format!("Sending ressurect message {:?}\n", recver_msg));
+
+                    // TODO: ? Check if can ignore the result
+                    let _ = sender_ch.send(sender_msg);
+
+                    // TODO: ? Check if can ignore the result
+                    let _ = receiver_ch.send(recver_msg);
                 },
                 None => {
                     println!("Received a dissapear tag that no longer is in the history's records")

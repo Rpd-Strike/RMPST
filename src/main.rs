@@ -1,4 +1,4 @@
-use pi_calculus::rollpi::{syntax::*, environment::{generator, runner::{self, RunningContext}}, local_types::{PartLocalType, LocalType}};
+use pi_calculus::rollpi::{syntax::*, environment::{generator, runner::{self, RunningContext}}};
 use pi_calculus::scenarios;
 
 fn run_processes_as_parties(conf: Vec<(String, Process)>) 
@@ -36,8 +36,10 @@ fn run_processes_as_parties(conf: Vec<(String, Process)>)
 
 fn main() 
 {
-    let chosen_scenario = scenarios::loc_types::simple_rec_lt;
-    // let chosen_scenario = scenarios::roll_pi::basic_roll_pi_test;
+    let chosen_scenario = 
+        // scenarios::loc_types::simple_rec_lt;
+        // scenarios::roll_pi::basic_roll_pi_test;
+        scenarios::roll_pi::basic_roll_pi_rollback;
 
     run_processes_as_parties(chosen_scenario());
 }

@@ -1,4 +1,4 @@
-use crate::rollpi::{environment::{components::{actions::ActionInterpreter, picker::{Strategy, PrimProcTransf}}, entities::participant::{PartyContext, ParticipantState}}, syntax::{TaggedPrimProc, PrimProcess, ChName, PrimeState}, logger::FileLog::FileLogger};
+use crate::rollpi::{environment::{components::{actions::ActionInterpreter, picker::{Strategy, PrimProcTransf}}, entities::participant::{PartyContext, ParticipantState}}, syntax::{TaggedPrimProc, PrimProcess, ChName, PrimeState}, logger::file_log::FileLogger};
 
 use super::SimpleDeterministic::ActionContext;
 
@@ -19,41 +19,20 @@ impl Strategy for SimpleOrderStrat
 {
     fn run_strategy<'a>(&'a self, pctx: &mut PartyContext, state: &'a ParticipantState) -> Option<PrimProcTransf>
     {
-        let ParticipantState { pr_state, frozen_tags } = state;
+        let ParticipantState { live_state, dead_state, frozen_tags } = state;
 
         let non_frozen_states = || {
-            pr_state
+            live_state
                 .iter()
                 .enumerate()
                 .filter(|(_, x)| !frozen_tags.contains(&x.tag))
         };
 
-        non_frozen_states().for_each(|(pos, x)| {
-            let TaggedPrimProc { tag, proc } = x;
-            let tip = match proc {
-                PrimProcess::End => "End".to_string(),
-                PrimProcess::RollK(_) => "Roll".to_string(),
-                PrimProcess::Send(ChName(ch_name), _) => format!("Send {}", ch_name),
-                PrimProcess::Recv(ChName(ch_name), _, _, _) => format!("Recv {}", ch_name),
-            };
+        log_state(state, pctx.get_logger());
 
-            pctx.get_logger().log(format!(" | {}", tip));
-        });
-
-        pctx.get_logger().log(format!(" |  ||| \n"));
-
-        check_for_non_rec_comm(&state.pr_state, pctx.get_id().clone(), pctx.get_logger());
+        check_for_non_rec_comm(&state.live_state, pctx.get_id().clone(), pctx.get_logger());
         
         let pos = None;
-
-        // Try End processes
-        let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
-            TaggedPrimProc{ proc: PrimProcess::End, .. } => {
-                // println!("Chose end process");
-                Some((i, ActionContext::End))
-            },
-            _ => None,
-        })});  
 
         // Try recv processes - order: first comm_* -> rec_norm_* -> rec_comb_*
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
@@ -62,7 +41,7 @@ impl Strategy for SimpleOrderStrat
                 self.interpreter.probe_recv_channel(&pctx, ch_name)
                     .map(|comm| {
                         // println!("Chose receiving process {:?} with tag {:?} from channel {:?}", comm.process, comm.tag, ch_name);
-                        (i, ActionContext::RecvCont(comm, ch_name.clone(), p_var, t_var, next_proc, tag.clone()))
+                        (i, (tag, ActionContext::RecvCont(comm, ch_name.clone(), p_var, t_var, next_proc, )))
                     })
             },
             _ => None
@@ -70,9 +49,9 @@ impl Strategy for SimpleOrderStrat
 
         // Try rollbacks
         let pos = pos.or_else(|| non_frozen_states().find_map(|(i, x)| match x {
-            TaggedPrimProc{ proc: PrimProcess::RollK(tag_key), .. } => {
+            TaggedPrimProc{ proc: PrimProcess::RollK(tag_key), tag } => {
                 // println!("Chose rollk process with tag {:?}", tag_key);
-                Some((i, ActionContext::RollK(tag_key)))
+                Some((i, (tag, ActionContext::RollK(tag_key))))
             },
             _ => None,
         }));
@@ -81,7 +60,7 @@ impl Strategy for SimpleOrderStrat
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {
                 if ch_name.0.starts_with("comm") {
-                    Some((i, ActionContext::Send(ch_name, send_proc, tag)))
+                    Some((i, (tag, ActionContext::Send(ch_name, send_proc))))
                 }
                 else {
                     None
@@ -95,7 +74,7 @@ impl Strategy for SimpleOrderStrat
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {
                 if ch_name.0.starts_with("rec_norm") {
                     std::thread::sleep(std::time::Duration::from_secs(2));
-                    Some((i, ActionContext::Send(ch_name, send_proc, tag)))
+                    Some((i, (tag,ActionContext::Send(ch_name, send_proc))))
                 }
                 else {
                     None
@@ -108,10 +87,19 @@ impl Strategy for SimpleOrderStrat
         let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
             TaggedPrimProc{ proc: PrimProcess::Send(ch_name, send_proc), tag} => {
                 std::thread::sleep(std::time::Duration::from_secs(2));
-                Some((i, ActionContext::Send(ch_name, send_proc, tag)))
+                Some((i, (tag, ActionContext::Send(ch_name, send_proc))))
             },
             _ => None,
         })});
+
+        // Try End processes
+        let pos = pos.or_else(|| {non_frozen_states().find_map(|(i, x)| match x {
+            TaggedPrimProc{ proc: PrimProcess::End, tag } => {
+                // println!("Chose end process");
+                Some((i, (tag, ActionContext::End)))
+            },
+            _ => None,
+        })});  
         
         pos.map(|(el_pos, ac)| {
             PrimProcTransf(el_pos, 
@@ -120,11 +108,42 @@ impl Strategy for SimpleOrderStrat
     }
 }
 
+fn log_state(state: &ParticipantState, logger: &mut FileLogger)
+{
+    state.live_state.iter().for_each(|x| {
+        let TaggedPrimProc { tag: _, proc } = x;
+        let tip = match proc {
+            PrimProcess::End => "End".to_string(),
+            PrimProcess::RollK(_) => "Roll".to_string(),
+            PrimProcess::Send(ChName(ch_name), _) => format!("Send {}", ch_name),
+            PrimProcess::Recv(ChName(ch_name), _, _, _) => format!("Recv {}", ch_name),
+        };
+
+        logger.log(format!("- {} ", tip));
+    });
+
+    logger.log(format!(" xxx "));
+
+    state.dead_state.iter().for_each(|x| {
+        let TaggedPrimProc { tag: _, proc } = x;
+        let tip = match proc {
+            PrimProcess::End => "End".to_string(),
+            PrimProcess::RollK(_) => "Roll".to_string(),
+            PrimProcess::Send(ChName(ch_name), _) => format!("Send {}", ch_name),
+            PrimProcess::Recv(ChName(ch_name), _, _, _) => format!("Recv {}", ch_name),
+        };
+
+        logger.log(format!("{} - ", tip));
+    });
+
+    logger.log(format!(" ||| \n"));
+}
+
 fn check_for_non_rec_comm(state: &PrimeState, id: String, logger: &mut FileLogger)
 {
     let mut has_non_rec_gen = false;
 
-    for TaggedPrimProc { tag, proc } in state {
+    for TaggedPrimProc { tag: _, proc } in state {
         match proc {
             PrimProcess::Send(ChName(ch_name), _) => {
                 if !ch_name.starts_with("rec") {
