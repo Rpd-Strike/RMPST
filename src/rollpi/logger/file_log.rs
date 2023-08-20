@@ -23,7 +23,6 @@ impl FileLogger
     {
         use std::io::Write;
 
-        // let m = format!("{}{}", msg, LINE_ENDING);
         self.file.write_all(msg.as_bytes()).unwrap()
     }
 
