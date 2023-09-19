@@ -37,10 +37,10 @@ fn run_processes_as_parties(conf: Vec<(String, Process)>)
 fn main() 
 {
     let chosen_scenario = 
-        // scenarios::loc_types::simple_rec_lt;
+        scenarios::loc_types::simple_rec_lt;
         // scenarios::roll_pi::basic_roll_pi_test;
         // scenarios::roll_pi::basic_roll_pi_rollback;
-        scenarios::roll_pi::complex_roll_pi_rollback;
+        // scenarios::roll_pi::complex_roll_pi_rollback;
 
     run_processes_as_parties(chosen_scenario());
 }
