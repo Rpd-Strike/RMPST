@@ -31,9 +31,6 @@ fn run_processes_as_parties(conf: Vec<(String, Process)>)
     runner.run();
 }
 
-// TODO: Create a module to transform from local types to processes and names
-
-
 fn main() 
 {
     let chosen_scenario = 
